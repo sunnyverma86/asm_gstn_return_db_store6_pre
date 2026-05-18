@@ -1,0 +1,48 @@
+package com.deloitte.returns.entity.type.AdjudicationRemandedAndAppealEffects;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Entity
+@Table(name = "sdtls", schema = "adjudication_remanded_and_appeal_effects")
+public class Adjrc_Sdtls {
+
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
+
+	@JsonProperty("aescn")
+	@OneToOne(cascade = CascadeType.ALL)
+	@JoinColumn(name = "aescn_id")
+	private Adjrc_Aescn aescn;
+
+	@JsonProperty("remandedordr")
+	@OneToOne(cascade = CascadeType.ALL)
+	@JoinColumn(name = "remandedordr_id")
+	private Adjrc_Remandedordr remandedordr;
+
+	@JsonProperty("paorder")
+	@OneToOne(cascade = CascadeType.ALL)
+	@JoinColumn(name = "paorder_id")
+	private Adjrc_Paorder paorder;
+
+	@JsonProperty("aedrcorder")
+	@OneToOne(cascade = CascadeType.ALL)
+	@JoinColumn(name = "aedrcorder_id")
+	private Adjrc_Aedrcorder aedrcorder;
+
+}

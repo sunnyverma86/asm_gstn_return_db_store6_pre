@@ -1,0 +1,43 @@
+package com.deloitte.returns.entity.type.AdjudicationDeterminationTax;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Entity
+@Table(name = "dtorderdata", schema = "adjudication_determination_tax")
+public class Adjadt_Dtorderdata {
+
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
+
+	@Column(length = 5000) // Set a higher limit as needed
+	@JsonProperty("reason")
+	private String reason;
+
+	@JsonProperty("sdtls")
+	@OneToOne(cascade = CascadeType.ALL)
+	@JoinColumn(name = "sdtls_id")
+	private Adjadt_Sdtls sdtls;
+
+	@JsonProperty("todtls")
+	@OneToOne(cascade = CascadeType.ALL)
+	@JoinColumn(name = "todtls_id")
+	private Adjadt_Todtls todtls;
+
+}

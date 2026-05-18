@@ -1,0 +1,981 @@
+package com.deloitte.service.impl;
+
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Queue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+import javax.imageio.ImageIO;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.stereotype.Service;
+
+import com.deloitte.common.bean.GSTCommonResponseBean;
+import com.deloitte.common.constant.Constants;
+import com.deloitte.common.entity.APIDetails;
+import com.deloitte.common.entity.GSTUserSession;
+import com.deloitte.common.entity.MasterData;
+import com.deloitte.returns.entity.RentActivePpbzdtls;
+import com.deloitte.returns.entity.DownloadDocument.FileNameDocument;
+import com.deloitte.returns.entity.DownloadDocument.RegDocuments;
+import com.deloitte.returns.entity.DownloadDocument.RegisDcupdtlsTesting;
+import com.deloitte.returns.entity.DownloadDocument.RegistrationDownloadDocument;
+import com.deloitte.returns.repository.RegDocumentsRepository;
+import com.deloitte.returns.repository.RegisDcupdtlsRepository;
+import com.deloitte.returns.repository.RegistrationDownloadDocumentRepository;
+import com.deloitte.returns.repositoryCommon.FileNameDocumentRepository;
+import com.deloitte.returns.service.AuthenticationHelper;
+import com.deloitte.returns.service.GstUserSessionServices;
+import com.deloitte.service.helper.REST.call.RestClientHelper;
+import com.deloitte.service.support.AESEncryption;
+import com.deloitte.service.utility.SftpUtil;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import lombok.extern.log4j.Log4j2;
+
+@Service
+@Log4j2
+public class RegistrationServiceImpl {
+
+	// common-autowired-start
+	@Value("${normal-compostion.file.location}")
+	private String normalAndCompositionFileLocation;
+
+	private static final String BASE_PATH = "/var/gst_files/GST_FILES/Return_Auto/Registration_Deloitte/filter";
+
+	@Value("${tds-tcs.file.location}")
+	private String tdsAndTcsFileLocation;
+
+	@Value("${document.file.location}")
+	private String documentFileLocation;
+
+	@Autowired
+	private MasterDataServiceImpl masterDataService;
+
+	@Autowired
+	private GstUserSessionServices gstUserSessionServices;
+
+	@Autowired
+	private AuthenticationHelper authenticationHelper;
+
+	@Autowired
+	private RestClientHelper restClient;
+
+	@Autowired
+	private APIDetailsImpl apiDetailsImpl;
+
+	@Autowired
+	private RegistrationDownloadDocumentRepository registrationDownloadDocumentRepository;
+
+	@Autowired
+	private RegisDcupdtlsRepository regisDcupdtlsRepository;
+
+	@Autowired
+	private FileNameDocumentRepository fileNameDocumentRepository;
+
+	@Autowired
+	private RegDocumentsRepository regDocumentsRepository;
+
+	private static final ObjectMapper MAPPER = new ObjectMapper();
+
+	private final ConcurrentHashMap<String, Boolean> folderCache = new ConcurrentHashMap<>();
+
+	private static final int BATCH_SIZE = 10; // Adjust the batch size as needed
+	private static final int THREAD_POOL_SIZE = 150; // Adjust the number of threads as needed
+
+	// anyId=GSTIM
+	// anyIdty=type like normal tds tcs or composition
+	public String getAllByIdtyAndIdIntoDrive(String anyId, String anyIdty) {
+		String username = "GSTG2G22";
+		log.info("Method{} :getAllByIdtyAndIdIntoDrive");
+		String getReturnEntity = null;
+
+		MasterData masterData = masterDataService.getMasterdatabyName(username);
+
+		if (masterData == null) {
+			log.error("User {} not found in Master Data Table", username);
+			return "ERROR: User not found in Master Data";
+		}
+
+		// GSTUserSession gstUserSessions =
+		// gstUserSessionServices.getUserSessionsByName(username);
+		GSTUserSession gstUserSessions = gstUserSessionServices.getUserSessionsByName(username);
+
+		if (gstUserSessions == null) {
+			log.error("User {} session is not authenticated", username);
+			return "ERROR: Session not authenticated";
+		}
+
+		getReturnEntity = getEntityRequestIntoDrive(masterData, anyIdty, anyId, gstUserSessions);
+
+		System.out.println(getReturnEntity);
+		return getReturnEntity;
+	}
+
+	// 1
+	private String getEntityRequestIntoDrive(MasterData masterData, String anyIdty, String anyId,
+			GSTUserSession gstUserSessions) {
+		APIDetails apiDetailsForFileCount = apiDetailsImpl.findByName(Constants.GET_REGISTRATION_NORMAL_TAX_PAYER);
+		HttpHeaders headersForFileDetails = authenticationHelper.getDefaultHeaders(masterData,
+				gstUserSessions.getAuthToken(), apiDetailsForFileCount.getApiContentType());
+		Map<String, String> paramsForFileDetails = getParamsForRequestEntity(masterData, anyIdty, anyId,
+				apiDetailsForFileCount);
+		String pathForFileDetails = authenticationHelper.getUriWithParam(
+				authenticationHelper.getFullPath(masterData, apiDetailsForFileCount), paramsForFileDetails);
+		GSTCommonResponseBean responseEntity = new GSTCommonResponseBean();
+		responseEntity = restClient.get(pathForFileDetails, GSTCommonResponseBean.class, headersForFileDetails);
+		if (null == responseEntity) {
+			log.error("User {} session is not authenticated", responseEntity);
+			return "ERROR: Session not authenticated";
+		}
+		String directoryPath = null;
+		if (anyIdty.equalsIgnoreCase("UITD") || anyIdty.equalsIgnoreCase("UITC")) {
+			directoryPath = tdsAndTcsFileLocation;
+		} else {
+			directoryPath = normalAndCompositionFileLocation;
+		}
+
+		String filePath = directoryPath + "\\" + anyId + ".json";
+		Path path = Paths.get(filePath);
+		if (Files.exists(path)) {
+			String reason = "File already exists: " + filePath;
+			log.debug(reason);
+			return new String(" GSTN: " + anyId + " Data already exists.");
+		}
+		if (responseEntity.getRek() != null) {
+			try {
+				String jsonData = AESEncryption.baseDecode(Objects.requireNonNull(responseEntity).getData());
+				Files.write(Paths.get(filePath), jsonData.getBytes());
+				log.info("JSON data saved to file: " + filePath);
+			} catch (JsonProcessingException e) {
+				throw new RuntimeException(e);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		} else {
+			return new String(" GSTN: " + anyId + " Data has not been added. Failed");
+		}
+
+		return new String(" GSTN: " + anyId + " Data has been added successfully");
+	}
+
+	private Map<String, String> getParamsForRequestEntity(MasterData masterData, String anyIdty, String anyId,
+			APIDetails apiDetailsForFileCount) {
+
+		Map<String, String> params = new HashMap<String, String>();
+		params.put("action", apiDetailsForFileCount.getApiAction());
+		params.put("state_cd", masterData.getStateCd());
+		params.put("idty", anyIdty);
+		params.put("id", anyId);
+		return params;
+	}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+	public String getDownloadDocumentViaGstin(RegDocuments regDocument, String username) {
+
+		log.info("Started document download for gstin={} documentId={}", regDocument.getGstin(),
+				regDocument.getDocumentId());
+
+		try {
+
+			MasterData masterData = masterDataService.getMasterdatabyName(username);
+
+			if (masterData == null) {
+				return "Master data not found";
+			}
+
+			GSTUserSession session = gstUserSessionServices.getUserSessionsByName(username);
+
+			if (session == null) {
+				return "Session not authenticated";
+			}
+
+			return getDownloadDataRequestIntoDrive(masterData, regDocument, session);
+
+		} catch (Exception e) {
+
+			log.error("Download failed for documentId={}", regDocument.getDocumentId(), e);
+
+			saveError(regDocument, e.getMessage());
+
+			return "Failed";
+		}
+	}
+
+	private String getDownloadDataRequestIntoDrive(MasterData masterData, RegDocuments doc,
+			GSTUserSession gstUserSessions) {
+
+		try {
+
+			log.info("Started document download | gstin={} | documentId={}", doc.getGstin(), doc.getDocumentId());
+
+			APIDetails apiDetails = apiDetailsImpl.findByName(Constants.GET_REGISTRATION_DOWNLOAD_DOCUMENT);
+
+			HttpHeaders headers = authenticationHelper.getDefaultHeaders(masterData, gstUserSessions.getAuthToken(),
+					apiDetails.getApiContentType());
+
+			Map<String, String> params = getParamsForRequestDownloadDataEntity(masterData, doc.getDocumentId(),
+					apiDetails);
+
+			String apiPath = authenticationHelper
+					.getUriWithParam(authenticationHelper.getFullPath(masterData, apiDetails), params);
+
+			log.info("Calling GST API: {}", apiPath);
+
+			GSTCommonResponseBean response = restClient.get(apiPath, GSTCommonResponseBean.class, headers);
+
+			if (response == null || response.getData() == null) {
+				log.error("Null response received from API for documentId={}", doc.getDocumentId());
+
+				updateErrorRecord(doc, "Null response received from API");
+				return "No data received";
+			}
+
+			byte[] fileBytes = Base64.getDecoder().decode(response.getData());
+
+			// -----------------------------------------
+			// OS Independent Folder Path
+			// -----------------------------------------
+			String folderPath = Paths.get(documentFileLocation, doc.getYy(), doc.getMm(), doc.getDd(),
+					doc.getRegSection(), doc.getSectionType()).toString();
+
+			Path directoryPath = Paths.get(folderPath);
+
+			if (!Files.exists(directoryPath)) {
+				Files.createDirectories(directoryPath);
+				log.info("Directory created: {}", folderPath);
+			}
+
+			// -----------------------------------------
+			// Dynamic File Name
+			// -----------------------------------------
+			String fileNameWithoutExt = doc.getGstin() + "_" + doc.getRegSection() + "_" + doc.getSectionType() + "_"
+					+ doc.getYy() + doc.getMm() + doc.getDd() + "_" + doc.getDocumentId();
+
+			String extension = getFileExtension(doc.getCt());
+
+			if (extension == null) {
+				updateErrorRecord(doc, "Unsupported document type: " + doc.getCt());
+				return "Unsupported document type";
+			}
+
+			Path finalPath = Paths.get(folderPath, fileNameWithoutExt + extension);
+
+			// -----------------------------------------
+			// Skip if file already exists
+			// -----------------------------------------
+			if (Files.exists(finalPath)) {
+
+				log.info("File already exists for documentId={} path={}", doc.getDocumentId(), finalPath);
+
+				updateSuccessRecord(doc, folderPath, fileNameWithoutExt);
+
+				return "File already exists";
+			}
+
+			// -----------------------------------------
+			// Write file
+			// -----------------------------------------
+			Files.write(finalPath, fileBytes, StandardOpenOption.CREATE);
+
+			// -----------------------------------------
+			// Update existing DB record
+			// -----------------------------------------
+			updateSuccessRecord(doc, folderPath, fileNameWithoutExt);
+
+			log.info("File downloaded successfully | documentId={} | path={}", doc.getDocumentId(), finalPath);
+
+			return "File downloaded successfully";
+
+		} catch (Exception e) {
+
+			log.error("File download failed | gstin={} | documentId={}", doc.getGstin(), doc.getDocumentId(), e);
+
+			updateErrorRecord(doc, e.getMessage());
+
+			return "Failed";
+		}
+	}
+
+	private void updateSuccessRecord(RegDocuments doc, String folderPath, String fileName) {
+
+		doc.setFilePath(folderPath);
+		doc.setFileName(fileName);
+		doc.setIsSuccess(true);
+		doc.setErrorMsg(null);
+		doc.setInsertDt(new java.sql.Date(System.currentTimeMillis()));
+
+		regDocumentsRepository.save(doc);
+
+		log.info("DB record updated successfully for documentId={}", doc.getDocumentId());
+	}
+
+	private void updateErrorRecord(RegDocuments doc, String errorMessage) {
+
+		try {
+			ObjectMapper mapper = new ObjectMapper();
+
+			ObjectNode errorNode = mapper.createObjectNode();
+
+			errorNode.put("error_message", errorMessage);
+
+			doc.setIsSuccess(false);
+			doc.setErrorMsg(errorNode);
+			doc.setInsertDt(new java.sql.Date(System.currentTimeMillis()));
+
+			regDocumentsRepository.save(doc);
+
+			log.error("Error updated in DB for documentId={} error={}", doc.getDocumentId(), errorMessage);
+
+		} catch (Exception e) {
+			log.error("Failed updating error record for documentId={}", doc.getDocumentId(), e);
+		}
+	}
+
+	private String getFileExtension(String contentType) {
+
+		if ("application/pdf".equalsIgnoreCase(contentType)) {
+			return ".pdf";
+		}
+
+		if ("image/jpeg".equalsIgnoreCase(contentType)) {
+			return ".jpg";
+		}
+
+		if ("image/png".equalsIgnoreCase(contentType)) {
+			return ".png";
+		}
+
+		return null;
+	}
+
+	private void saveError(RegDocuments doc, String errorMessage) {
+
+		try {
+			ObjectMapper mapper = new ObjectMapper();
+
+			ObjectNode errorNode = mapper.createObjectNode();
+
+			errorNode.put("error_message", errorMessage);
+
+			doc.setIsSuccess(false);
+			doc.setErrorMsg(errorNode);
+			doc.setInsertDt(new java.sql.Date(System.currentTimeMillis()));
+
+			regDocumentsRepository.save(doc);
+
+		} catch (Exception ex) {
+			log.error("Failed to save error log for documentId={}", doc.getDocumentId(), ex);
+		}
+	}
+
+	private String getDownloadDataRequestIntoDrive(MasterData masterData, String gstin, String documentId,
+			String documentType, GSTUserSession gstUserSessions) {
+
+		APIDetails apiDetailsForFileCount = apiDetailsImpl.findByName(Constants.GET_REGISTRATION_DOWNLOAD_DOCUMENT);
+
+		HttpHeaders headersForFileDetails = authenticationHelper.getDefaultHeaders(masterData,
+				gstUserSessions.getAuthToken(), apiDetailsForFileCount.getApiContentType());
+
+		Map<String, String> paramsForFileDetails = getParamsForRequestDownloadDataEntity(masterData, documentId,
+				apiDetailsForFileCount);
+
+		String pathForFileDetails = authenticationHelper.getUriWithParam(
+				authenticationHelper.getFullPath(masterData, apiDetailsForFileCount), paramsForFileDetails);
+
+		log.info("Fetching document from API: " + pathForFileDetails);
+
+		GSTCommonResponseBean responseEntity = restClient.get(pathForFileDetails, GSTCommonResponseBean.class,
+				headersForFileDetails);
+
+		List<FileNameDocument> fileDetailsList = new ArrayList<>();
+		// RegistrationDownloadDocument registrationDownloadDocumentTemp = null;
+
+		if (responseEntity == null) {
+			log.error("Null response received from API");
+		}
+
+		String filePath = Paths.get(documentFileLocation, gstin + "_" + documentId + ".jpg").toString();
+		Path path = Paths.get(filePath);
+
+		if (Files.exists(path)) {
+			log.debug("File already exists: " + filePath);
+			return "GSTN: " + documentId + " Data already exists.";
+		}
+
+		if (responseEntity.getRek() != null && responseEntity.getData() != null) {
+
+			try {
+				byte[] fileBytes = Base64.getDecoder().decode(responseEntity.getData());
+				Long docIdLong = Long.valueOf(documentId);
+
+				// external add
+				// log.info("Document Type from API: " + responseEntity);
+				log.info("Document Type from API: " + documentType);
+				log.info("REK: " + responseEntity.getRek());
+				log.info("Data length: "
+						+ (responseEntity.getData() != null ? responseEntity.getData().length() : "null"));
+
+				// RegistrationDownloadDocument registrationDownloadDocumentTemp = null;
+
+				File directory = new File(documentFileLocation);
+				if (!directory.exists())
+					directory.mkdirs();
+
+				if (documentType.equalsIgnoreCase("image/jpeg") || documentType.equalsIgnoreCase("image/png")) {
+
+					String extension = documentType.equalsIgnoreCase("image/png") ? "png" : "jpg";
+
+					String imageFilePath = Paths.get(documentFileLocation, gstin + "_" + documentId + "." + extension)
+							.toString();
+
+					BufferedImage image = ImageIO.read(new ByteArrayInputStream(fileBytes));
+
+					if (image == null) {
+						return "GSTN: " + documentId + " Invalid image data.";
+					}
+					File outputFile = new File(imageFilePath);
+					ImageIO.write(image, extension, outputFile);
+
+					String imageFileName = getFileName(imageFilePath);
+					String folderName = getDocumentFolderName(documentId);
+					if (!fileAlreadySaved(gstin, imageFileName)) {
+						fileDetailsList.add(docdocumentFileDetails(gstin, imageFileName));
+						fileNameDocumentRepository.saveAll(fileDetailsList);
+					} else {
+						log.info("Record already exists in FileNameDocument: " + imageFileName);
+					}
+
+					RegisDcupdtlsTesting doc = regisDcupdtlsRepository.findFirstByGstinAndJsonIdDcupdtls(gstin,
+							docIdLong);
+					if (doc != null) {
+						doc.setIsProcessed(true);
+						doc.setFoundInfo(true);
+						regisDcupdtlsRepository.save(doc);
+					}
+
+					return "GSTN: " + documentId + " Image has been saved successfully.";
+				}
+
+				else if (documentType.equalsIgnoreCase("application/pdf")) {
+					String pdfFilePath = Paths.get(documentFileLocation, gstin + "_" + documentId + ".pdf").toString();
+					try (FileOutputStream fos = new FileOutputStream(pdfFilePath)) {
+						fos.write(fileBytes);
+					}
+
+					String pdfFileName = getFileName(pdfFilePath);
+					String folderName = getDocumentFolderName(documentId);
+					if (!fileAlreadySaved(gstin, pdfFileName)) {
+						fileDetailsList.add(docdocumentFileDetails(gstin, pdfFileName));
+						fileNameDocumentRepository.saveAll(fileDetailsList);
+					} else {
+						log.info("Record already exists in FileNameDocument: " + pdfFileName);
+					}
+
+					RegisDcupdtlsTesting doc = regisDcupdtlsRepository.findFirstByGstinAndJsonIdDcupdtls(gstin,
+							docIdLong);
+					if (doc != null) {
+						doc.setIsProcessed(true);
+						doc.setFoundInfo(true);
+						regisDcupdtlsRepository.save(doc);
+					}
+					return "GSTN: " + documentId + " PDF has been saved successfully.";
+				} else {
+					return "GSTN: " + documentId + " Unsupported document type.";
+				}
+			} catch (Exception e) {
+				log.error("Error saving file for GSTN: " + documentId, e);
+				return "GSTN: " + documentId + " Failed to save the file.";
+			}
+		}
+		return "GSTN: " + documentId + " Data has not been added. Failed.";
+	}
+
+	private Map<String, String> getParamsForRequestDownloadDataEntity(MasterData masterData, String documentId,
+			APIDetails apiDetailsForFileCount) {
+		Map<String, String> params = new HashMap<String, String>();
+		params.put("action", apiDetailsForFileCount.getApiAction());
+		params.put("state_cd", masterData.getStateCd());
+		params.put("docid", documentId);
+		return params;
+
+	}
+
+	private String getFileName(String fullPath) {
+		return Paths.get(fullPath).getFileName().toString();
+	}
+
+	private boolean fileAlreadySaved(String gstin, String fileName) {
+		return fileNameDocumentRepository.existsByGstinAndFileName(gstin, fileName);
+	}
+
+	private String getDocumentFolderName(String documentId) {
+		String baseFolder = documentFileLocation;
+		StringBuilder path = new StringBuilder(baseFolder)
+				.append(RegistrationDownloadDocument.class.getSimpleName().toUpperCase()).append("\\")
+				.append(documentId).append("\\");
+		return path.toString();
+	}
+
+	private FileNameDocument docdocumentFileDetails(String gstin, String fileName) {
+		FileNameDocument filedetails = new FileNameDocument();
+		filedetails.setIsProcessed(false);
+		filedetails.setFileName(fileName);
+
+		String baseFolder = documentFileLocation;
+		if (fileName.startsWith("\\") || fileName.startsWith("/")) {
+			fileName = fileName.substring(1);
+		}
+		filedetails.setFilePath(baseFolder + File.separator + fileName);
+
+		filedetails.setGstin(gstin);
+		filedetails.setApplication("REGISTRATIONDOWNLOADDOCUMENT");
+		return filedetails;
+	}
+
+	public String documentFileToDatabase() throws IOException {
+		ExecutorService executorService = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
+
+		List<FileNameDocument> listOfFiles = fileNameDocumentRepository.findAllByIsProcessedFalseOrderById();
+
+		int totalFiles = listOfFiles.size();
+
+		for (int i = 0; i < totalFiles; i += BATCH_SIZE) {
+			int start = i;
+			int end = Math.min(i + BATCH_SIZE, totalFiles);
+
+			executorService.submit(() -> {
+				for (int j = start; j < end; j++) {
+					FileNameDocument fileNameDocument = listOfFiles.get(j);
+					String filePath = fileNameDocument.getFilePath();
+					String application = fileNameDocument.getApplication();
+					String fileName = fileNameDocument.getFileName();
+
+					try {
+						if (application.equalsIgnoreCase("REGISTRATIONDOWNLOADDOCUMENT")) {
+
+							byte[] fileBytes = Files.readAllBytes(Paths.get(filePath));
+
+							String contentType;
+							if (fileName.toLowerCase().endsWith(".pdf")) {
+								contentType = "application/pdf";
+							} else if (fileName.toLowerCase().endsWith(".jpg")
+									|| fileName.toLowerCase().endsWith(".jpeg")) {
+								contentType = "image/jpeg";
+							} else if (fileName.toLowerCase().endsWith(".png")) {
+								contentType = "image/png";
+							} else {
+								contentType = "application/octet-stream";
+							}
+
+							RegistrationDownloadDocument document = new RegistrationDownloadDocument();
+							document.setGstinNumber(fileName.replaceAll("\\.(pdf|jpg|jpeg|png)$", ""));
+							document.setData(fileBytes);
+							document.setContentType(contentType);
+
+							RegistrationDownloadDocument savedDoc = registrationDownloadDocumentRepository
+									.save(document);
+
+							if (savedDoc.getId() != null && savedDoc.getId() > 0) {
+								fileNameDocument.setIsProcessed(true);
+								fileNameDocumentRepository.save(fileNameDocument);
+								log.info("Saved {} for GSTIN {} from {}", contentType, document.getGstinNumber(),
+										filePath);
+							}
+
+						} else {
+							log.error("Unknown application type: {}", application);
+						}
+
+					} catch (IOException e) {
+						log.error("Failed to read file {}. Error: {}", filePath, e.getMessage());
+					} catch (OutOfMemoryError e) {
+						log.error("OutOfMemoryError while processing {}: {}", filePath, e.getMessage());
+						Runtime.getRuntime().gc();
+					} catch (Exception e) {
+						log.error("Exception while processing {}: {}", filePath, e.getMessage());
+					}
+				}
+			});
+		}
+
+		executorService.shutdown();
+		while (!executorService.isTerminated()) {
+			// Wait for all threads to finish
+		}
+
+		return "Binary documents saved to DB successfully.";
+	}
+
+//	public String processAllDocuments(String userName) {
+//
+//		long startTime = System.currentTimeMillis();
+//
+//		log.info("Started bulk document processing for user={}", userName);
+//
+//		MasterData masterData = masterDataService.getMasterdatabyName(userName);
+//
+//		if (masterData == null) {
+//			return "Master data not found";
+//		}
+//
+//		GSTUserSession gstUserSession = gstUserSessionServices.getUserSessionsByName(userName);
+//
+//		if (gstUserSession == null) {
+//			return "Session not authenticated";
+//		}
+//
+//		ExecutorService executor = Executors.newFixedThreadPool(50);
+//
+//		int pageNumber = 0;
+//		int totalProcessed = 0;
+//
+//		try {
+//
+//			while (true) {
+//
+//				Pageable pageable = PageRequest.of(pageNumber, 5000);
+//
+//				Page<RegDocuments> page = regDocumentsRepository.findByIsSuccessIsNull(pageable);
+//
+//				if (page.isEmpty()) {
+//					break;
+//				}
+//
+//				List<RegDocuments> dbUpdateList = Collections.synchronizedList(new ArrayList<>());
+//
+//				List<CompletableFuture<Void>> futures = new ArrayList<>();
+//
+//				for (RegDocuments doc : page.getContent()) {
+//
+//					CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+//
+//						try {
+//							processSingleDocument(masterData, gstUserSession, doc, dbUpdateList);
+//						} catch (Exception e) {
+//							log.error("Failed documentId={}", doc.getDocumentId(), e);
+//
+//							updateErrorRecord(doc, e.getMessage(), dbUpdateList);
+//						}
+//
+//					}, executor);
+//
+//					futures.add(future);
+//				}
+//
+//				CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+//
+//				if (!dbUpdateList.isEmpty()) {
+//					regDocumentsRepository.saveAll(dbUpdateList);
+//				}
+//
+//				totalProcessed += page.getContent().size();
+//
+//				log.info("Batch completed | page={} | processed={}", pageNumber, totalProcessed);
+//
+//				pageNumber++;
+//			}
+//
+//		} catch (Exception e) {
+//			log.error("Bulk processing failed", e);
+//		} finally {
+//			executor.shutdown();
+//		}
+//
+//		long totalTime = System.currentTimeMillis() - startTime;
+//
+//		log.info("Completed bulk processing | totalProcessed={} | time={} ms", totalProcessed, totalTime);
+//
+//		return "Processed records: " + totalProcessed;
+//	}
+//
+
+	private void updateSuccessRecord(RegDocuments doc, String path, String fileName, Queue<RegDocuments> queue) {
+
+		doc.setFilePath(path);
+		doc.setFileName(fileName);
+		doc.setIsSuccess(true);
+		doc.setErrorMsg(null);
+		doc.setInsertDt(new java.sql.Date(System.currentTimeMillis()));
+
+		queue.add(doc);
+	}
+
+	public void updateErrorRecord(RegDocuments doc, String errorMessage, Queue<RegDocuments> queue) {
+
+		try {
+			ObjectNode errorNode = MAPPER.createObjectNode();
+			errorNode.put("error_message", errorMessage);
+
+			doc.setIsSuccess(false);
+			doc.setErrorMsg(errorNode);
+			doc.setInsertDt(new java.sql.Date(System.currentTimeMillis()));
+
+			queue.add(doc);
+
+		} catch (Exception e) {
+			log.error("Error updating record documentId={}", doc.getDocumentId(), e);
+		}
+	}
+
+	private void shutdownExecutor(ExecutorService executor) {
+
+		executor.shutdown();
+
+		try {
+			if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+				executor.shutdownNow();
+			}
+		} catch (InterruptedException e) {
+			executor.shutdownNow();
+			Thread.currentThread().interrupt();
+		}
+	}
+
+	private String buildFolderPath(RegDocuments doc) {
+
+		return Paths.get(documentFileLocation, doc.getYy(), doc.getMm(), doc.getDd(), doc.getRegSection(),
+				doc.getSectionType()).toString();
+	}
+
+	private String buildFileName(RegDocuments doc) {
+
+		return doc.getGstin() + "_" + doc.getRegSection() + "_" + doc.getSectionType() + "_" + doc.getYy() + doc.getMm()
+				+ doc.getDd() + "_" + doc.getDocumentId();
+	}
+	
+	
+
+	private void createFolderIfNeeded(String folderPath) throws IOException {
+
+		if (folderCache.putIfAbsent(folderPath, true) == null) {
+			Files.createDirectories(Paths.get(folderPath));
+		}
+	}
+
+//	private void updateSuccessRecord(RegDocuments doc, String folderPath, String fileName,
+//			List<RegDocuments> dbUpdateList) {
+//
+//		doc.setFilePath(folderPath);
+//		doc.setFileName(fileName);
+//		doc.setIsSuccess(true);
+//		doc.setErrorMsg(null);
+//		doc.setInsertDt(new java.sql.Date(System.currentTimeMillis()));
+//
+//		dbUpdateList.add(doc);
+//	}
+
+	private void updateSuccessRecord(RegDocuments doc, String folderPath, String fileName,
+			List<RegDocuments> dbUpdateList) {
+
+		doc.setFilePath(folderPath);
+		doc.setFileName(fileName);
+		doc.setIsSuccess(true);
+		doc.setErrorMsg(null);
+		doc.setInsertDt(new java.sql.Date(System.currentTimeMillis()));
+
+		dbUpdateList.add(doc);
+		System.out.println("(dbUpdateList.size()::" + dbUpdateList.size());
+		// 🔥 Auto batch save
+		if (dbUpdateList.size() >= BATCH_SIZE) {
+			regDocumentsRepository.saveAll(dbUpdateList);
+			regDocumentsRepository.flush();
+			dbUpdateList.clear();
+		}
+	}
+
+	public void updateErrorRecord(RegDocuments doc, String errorMessage, List<RegDocuments> dbUpdateList) {
+
+		try {
+
+			ObjectNode errorNode = MAPPER.createObjectNode();
+			errorNode.put("error_message", errorMessage);
+
+			doc.setIsSuccess(false);
+			doc.setErrorMsg(errorNode);
+			doc.setInsertDt(new java.sql.Date(System.currentTimeMillis()));
+
+			dbUpdateList.add(doc);
+
+			// 🔥 Auto batch save
+			if (dbUpdateList.size() >= BATCH_SIZE) {
+				regDocumentsRepository.saveAll(dbUpdateList);
+				regDocumentsRepository.flush();
+				dbUpdateList.clear();
+			}
+
+		} catch (Exception e) {
+			log.error("Failed updating error record for documentId={}", doc.getDocumentId(), e);
+		}
+	}
+
+	public void processSingleDocumentLatest(MasterData masterData, GSTUserSession session, RegDocuments doc,
+			BlockingQueue<RegDocuments> updateQueue) {
+
+		try {
+
+			APIDetails apiDetails = apiDetailsImpl.findByName(Constants.GET_REGISTRATION_DOWNLOAD_DOCUMENT);
+
+			HttpHeaders headers = authenticationHelper.getDefaultHeaders(masterData, session.getAuthToken(),
+					apiDetails.getApiContentType());
+
+			Map<String, String> params = getParamsForRequestDownloadDataEntity(masterData, doc.getDocumentId(),
+					apiDetails);
+
+			String apiPath = authenticationHelper
+					.getUriWithParam(authenticationHelper.getFullPath(masterData, apiDetails), params);
+
+			GSTCommonResponseBean response = restClient.get(apiPath, GSTCommonResponseBean.class, headers);
+
+			if (response == null || response.getData() == null) {
+				updateErrorRecord(doc, "Null response from API", updateQueue);
+				return;
+			}
+
+			byte[] fileBytes = Base64.getDecoder().decode(response.getData());
+
+			String fileNameWithoutExt = buildFileName(doc);
+			String extension = getFileExtension(doc.getCt());
+
+			if (extension == null) {
+				updateErrorRecord(doc, "Unsupported file type", updateQueue);
+				return;
+			}
+
+			String fileName = fileNameWithoutExt + extension;
+
+			String remoteDir = BASE_PATH + "/" + doc.getYy() + "/" + doc.getMm() + "/" + doc.getDd() + "/"
+					+ doc.getRegSection() + "/" + doc.getSectionType() + "/" + doc.getId();
+
+			String remotePath = SftpUtil.uploadFileToSftp(fileBytes, remoteDir, fileName);
+
+			updateSuccessRecord(doc, remotePath, fileNameWithoutExt, updateQueue);
+
+		} catch (Exception e) {
+			updateErrorRecord(doc, e.getMessage(), updateQueue);
+		}
+	}
+
+//	public void updateErrorRecord(RegDocuments doc, String errorMessage, List<RegDocuments> dbUpdateList) {
+//
+//		try {
+//
+//			ObjectNode errorNode = MAPPER.createObjectNode();
+//
+//			errorNode.put("error_message", errorMessage);
+//
+//			doc.setIsSuccess(false);
+//			doc.setErrorMsg(errorNode);
+//			doc.setInsertDt(new java.sql.Date(System.currentTimeMillis()));
+//
+//			dbUpdateList.add(doc);
+//
+//		} catch (Exception e) {
+//
+//			log.error("Failed updating error record for documentId={}", doc.getDocumentId(), e);
+//		}
+//	}
+
+	public void processSingleDocumentFew(MasterData masterData, GSTUserSession session, RentActivePpbzdtls doc,
+			BlockingQueue<RentActivePpbzdtls> updateQueue) {
+
+		try {
+
+			APIDetails apiDetails = apiDetailsImpl.findByName(Constants.GET_REGISTRATION_DOWNLOAD_DOCUMENT);
+
+			HttpHeaders headers = authenticationHelper.getDefaultHeaders(masterData, session.getAuthToken(),
+					apiDetails.getApiContentType());
+
+			Map<String, String> params = getParamsForRequestDownloadDataEntity(masterData, doc.getDocumentId(),
+					apiDetails);
+
+			String apiPath = authenticationHelper
+					.getUriWithParam(authenticationHelper.getFullPath(masterData, apiDetails), params);
+
+			GSTCommonResponseBean response = restClient.get(apiPath, GSTCommonResponseBean.class, headers);
+
+			if (response == null || response.getData() == null) {
+				updateErrorRecordFew(doc, "Null response from API", updateQueue);
+				return;
+			}
+
+			byte[] fileBytes = Base64.getDecoder().decode(response.getData());
+
+			String fileNameWithoutExt = buildFileNameFew(doc);
+			String extension = getFileExtension(doc.getCt());
+
+			if (extension == null) {
+				updateErrorRecordFew(doc, "Unsupported file type", updateQueue);
+				return;
+			}
+
+			String fileName = fileNameWithoutExt + extension;
+
+			String remoteDir = BASE_PATH + "/" + doc.getId();
+
+			String remotePath = SftpUtil.uploadFileToSftp(fileBytes, remoteDir, fileName);
+
+			updateSuccessRecordFew(doc, remotePath, fileNameWithoutExt, updateQueue);
+
+		} catch (Exception e) {
+			updateErrorRecordFew(doc, e.getMessage(), updateQueue);
+		}
+	}
+
+	public void updateSuccessRecordFew(RentActivePpbzdtls doc, String path, String fileName,
+			Queue<RentActivePpbzdtls> queue) {
+
+		try {
+			doc.setPath(path);	
+			doc.setFileName(fileName);
+			doc.setIsProcessed(true);
+			doc.setInsertDt(new java.sql.Date(System.currentTimeMillis()));
+
+			queue.add(doc);
+
+		} catch (Exception e) {
+			log.error("Error updating record documentId={}", doc.getDocumentId(), e);
+		}
+	}
+
+	public void updateErrorRecordFew(RentActivePpbzdtls doc, String errorMessage, Queue<RentActivePpbzdtls> queue) {
+
+		try {
+
+			doc.setIsProcessed(false);
+			doc.setInsertDt(new java.sql.Date(System.currentTimeMillis()));
+
+			queue.add(doc);
+
+		} catch (Exception e) {
+			log.error("Error updating record documentId={}", doc.getDocumentId(), e);
+		}
+	}
+	
+	private String buildFileNameFew(RentActivePpbzdtls doc) {
+
+		return doc.getGstin() + "_" + doc.getRegSection() + "_" + doc.getSectionType() + "_" + doc.getDocumentId();
+	}
+
+}

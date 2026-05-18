@@ -1,0 +1,141 @@
+
+package com.deloitte.returns.entity.Gstr5;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.antlr.v4.runtime.misc.NotNull;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+
+import jakarta.annotation.Generated;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import lombok.Data;
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonPropertyOrder({ "chksum", "idt", "inum", "diff_percent", "itms", "nt_dt", "nt_num", "ont_dt", "ont_num", "ntty",
+		"val" })
+@Generated("jsonschema2pojo")
+@Entity
+@Table(name = "cdnura", schema = "gstr5")
+@Data
+public class Gstr5_Cdnura implements Serializable {
+
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
+
+	/**
+	 * Invoice checksum value (Required)
+	 * 
+	 */
+	@JsonProperty("chksum")
+	@JsonPropertyDescription("Invoice checksum value")
+	@NotNull
+	@Column
+	public String chksum;
+	/**
+	 * Supplier Invoice Date (Required)
+	 * 
+	 */
+	@JsonProperty("idt")
+	@JsonPropertyDescription("Supplier Invoice Date")
+	@NotNull
+	@Column
+	public String idt;
+	/**
+	 * Supplier Invoice Number (Required)
+	 * 
+	 */
+	@JsonProperty("inum")
+	@JsonPropertyDescription("Supplier Invoice Number")
+	@NotNull
+	@Column
+	public String inum;
+	/**
+	 * Differential percentage
+	 * 
+	 */
+	@JsonProperty("diff_percent")
+	@JsonPropertyDescription("Differential percentage")
+	@Column
+	public Double diffPercent;
+	/**
+	 * 
+	 * (Required)
+	 * 
+	 */
+	@JsonProperty("itms")
+	@NotNull
+	@OneToMany(cascade = CascadeType.ALL)
+	@JoinColumn(name = "cdnura_id")
+	public List<Gstr5_Itm> gstr5Itms = new ArrayList<Gstr5_Itm>();
+	/**
+	 * credit Date (Required)
+	 * 
+	 */
+	@JsonProperty("nt_dt")
+	@JsonPropertyDescription("credit Date")
+	@NotNull
+	@Column
+	public String ntDt;
+	/**
+	 * Credit/Debit Note Number (Required)
+	 * 
+	 */
+	@JsonProperty("nt_num")
+	@JsonPropertyDescription("Credit/Debit Note Number")
+	@NotNull
+	@Column
+	public String ntNum;
+	/**
+	 * Original credit/debit Note Date (Required)
+	 * 
+	 */
+	@JsonProperty("ont_dt")
+	@JsonPropertyDescription("Original credit/debit Note Date")
+	@NotNull
+	@Column
+	public String ontDt;
+	/**
+	 * Original Credit/Debit Note Number (Required)
+	 * 
+	 */
+	@JsonProperty("ont_num")
+	@JsonPropertyDescription("Original Credit/Debit Note Number")
+	@NotNull
+	@Column
+	public String ontNum;
+	/**
+	 * Note Type (Required)
+	 * 
+	 */
+	@JsonProperty("ntty")
+	@JsonPropertyDescription("Note Type")
+	@NotNull
+	@Column
+	public String ntty;
+	/**
+	 * Note Value (Required)
+	 * 
+	 */
+	@JsonProperty("val")
+	@JsonPropertyDescription("Note Value")
+	@NotNull
+	@Column
+	public Double val;
+	private final static long serialVersionUID = 9165855131186774408L;
+
+}

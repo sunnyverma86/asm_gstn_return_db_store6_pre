@@ -1,0 +1,31 @@
+package com.deloitte.returns.entity.type.AppealHigherAuthority1;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Entity
+@Table(name = "stayorder", schema = "appeal_higher_authority")
+
+public class Aplha_Stayorder {
+
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
+
+	@JsonProperty("ordnum")
+	private String ordnum;
+
+	@JsonProperty("orddt")
+	private String orddt;
+
+
+}
