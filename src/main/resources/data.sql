@@ -84,6 +84,8 @@ INSERT INTO public.api_details(	create_date_time, updated_date_time,  api_action
 INSERT INTO public.api_details(	create_date_time, updated_date_time,  api_action, api_content_type, api_encryption, api_name, api_path, api_url_parameters, is_active) VALUES (now(), now(), 'GETCASEDATAPPEAL', 'application/json', 'false','Get Return Appeal Tax Department','/govtapi/v1.0/appeal', NULL, 'true');
 
 INSERT INTO public.api_details(	create_date_time, updated_date_time,  api_action, api_content_type, api_encryption, api_name, api_path, api_url_parameters, is_active) VALUES (now(), now(), 'ARNUPDATE', 'application/json', 'false','Get Return Arn Update','/govtapi/v0.2/taxpayer/m2', NULL, 'true');
+--APPEL
+INSERT INTO public.api_details(	create_date_time, updated_date_time,  api_action, api_content_type, api_encryption, api_name, api_path, api_url_parameters, is_active) VALUES (now(), now(), 'GETDATA', 'application/json', 'false','Get Return Appel Adjudication','/govtapi/v1.0/appeal', NULL, 'true');
 
 
 

@@ -18,13 +18,15 @@ import com.deloitte.common.bean.GSTCommonResponseBean;
 import com.deloitte.common.constant.Constants;
 import com.deloitte.common.entity.APIDetails;
 import com.deloitte.common.entity.GSTUserSession;
-import com.deloitte.common.entity.GstinEntity;
 import com.deloitte.common.entity.MasterData;
+import com.deloitte.returns.entity.GstinEntity;
+import com.deloitte.returns.entity.log.LedgerInitialJson;
 import com.deloitte.returns.entity.registration.LedgerCommonDetails;
 import com.deloitte.returns.entity.registration.RegularTaxpayer;
 import com.deloitte.returns.repository.common.GstinRepository;
-import com.deloitte.returns.repository.common.RegularTaxpayerRepository;
+import com.deloitte.returns.repository.common.LedgerInitialJsonRepository;
 import com.deloitte.returns.repository.ledger.LedgerCommonDetailsRepository;
+import com.deloitte.returns.repository.registration.RegularTaxpayerRepository;
 import com.deloitte.returns.service.AuthenticationHelper;
 import com.deloitte.returns.service.GstUserSessionServices;
 import com.deloitte.returns.service.MasterDataService;
@@ -32,6 +34,8 @@ import com.deloitte.service.helper.REST.call.RestClientHelper;
 import com.deloitte.service.impl.APIDetailsImpl;
 import com.deloitte.service.impl.CommonServiceGstrLedgerImpl;
 import com.deloitte.service.impl.Gstr2aServiceImpl;
+import com.deloitte.service.utility.procedure.LedgerGstinProjection;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.extern.log4j.Log4j2;
@@ -78,6 +82,9 @@ public class CommonControllerGstrUtilityImpl {
 
 	@Autowired
 	protected LedgerCommonDetailsRepository ledgerCommonDetailsRepository;
+
+	@Autowired
+	protected LedgerInitialJsonRepository ledgerInitialJsonRepository;
 
 	protected static String USERNAME = "GSTG2G18";
 
@@ -465,7 +472,7 @@ public class CommonControllerGstrUtilityImpl {
 
 					log.warn("⏭ Skipping GSTIN={} because apprvdt > toDate", gstin);
 
-					saveSkippedRecord(gstin, action, fromDate, toDate, apprvDate, "APPROVAL_DATE_AFTER_TO_DATE");
+					saveSkippedRecord(gstin, action, fromDate, toDate, apprvDate, "APPROVAL_DATE_AFTER_TO_DATE",taxpayer.getId());
 
 					skippedCount++;
 
@@ -565,6 +572,40 @@ public class CommonControllerGstrUtilityImpl {
 
 			apiDetails = apiDetailsImpl.findByName(Constants.GET_RETURN_LEDGER);
 		}
+		// ============================================================
+		// CHECK DUPLICATE ENTRY
+		// ============================================================
+
+		boolean alreadyExists = ledgerCommonDetailsRepository.existsByGstinAndActionAndFromDateAndToDate(gstin, action,
+				fromDate, toDate);
+
+		if (alreadyExists) {
+
+			log.warn("⚠ ENTRY ALREADY EXISTS GSTIN={} ACTION={} FROM={} TO={}", gstin, action, fromDate, toDate);
+
+			LedgerCommonDetails entry = new LedgerCommonDetails();
+			LedgerInitialJson ledgerInitialJson = new LedgerInitialJson();
+
+			entry.setGstin(gstin);
+			entry.setAction(action);
+			entry.setFromDate(fromDate);
+			entry.setToDate(toDate);
+			entry.setIsProcessed(false);
+			entry.setMsg("ALREADY EXISTS : " + fromDate + " TO " + toDate);
+			entry.setStatus("ALREADY_EXISTS");
+
+			ledgerInitialJson.setGstin(gstin);
+			ledgerInitialJson.setFrDt(fromDate);
+			ledgerInitialJson.setToDt(toDate);
+			ledgerInitialJson.setMsg("ALREADY EXISTS : " + fromDate + " TO " + toDate);
+			ledgerInitialJson.setRegularTaxpayerId(null);
+			ledgerCommonDetailsRepository.save(entry);
+			//ledgerInitialJsonRepository.save(ledgerInitialJson);
+
+			log.info("💾 Duplicate Entry Saved GSTIN={}", gstin);
+
+			return;
+		}
 
 		HttpHeaders headers = authenticationHelper.getDefaultHeaders(masterData, gstUserSession.getAuthToken(),
 				apiDetails.getApiContentType());
@@ -603,12 +644,14 @@ public class CommonControllerGstrUtilityImpl {
 
 			entity.setMsg("SUCCESS");
 
+			entity.setStatus("UPDATED");
+
 			log.info("✅ SUCCESS GSTIN={}", gstin);
 
 		} else {
 
 			entity.setIsProcessed(false);
-
+			entity.setStatus("NOT_FOUND");
 			entity.setEntityJson(objectMapper.writeValueAsString(response));
 
 			String errorMsg = "GST_SERVER_ERROR";
@@ -628,17 +671,179 @@ public class CommonControllerGstrUtilityImpl {
 		log.info("💾 Ledger Saved GSTIN={}", gstin);
 	}
 
+	private void callLedgerApiByFunction(String gstin, String action, LocalDate fromDate, LocalDate toDate,
+			DateTimeFormatter outputFormatter, LocalDate apprvDate, String authstatus, Long regulartaxpayerid)
+			throws Exception {
+
+		String formattedFromDate;
+		String formattedToDate;
+
+		if ("TAX".equalsIgnoreCase(action)) {
+
+			formattedFromDate = fromDate.format(DateTimeFormatter.ofPattern("MMyyyy"));
+
+			formattedToDate = toDate.format(DateTimeFormatter.ofPattern("MMyyyy"));
+
+		} else {
+
+			formattedFromDate = fromDate.format(outputFormatter);
+
+			formattedToDate = toDate.format(outputFormatter);
+		}
+
+		log.info("📌 API Date Range={} -> {}", formattedFromDate, formattedToDate);
+
+		MasterData masterData = masterDataService.getMasterdatabyName(USERNAME);
+
+		if (masterData == null) {
+
+			throw new RuntimeException("MASTER_DATA_NOT_FOUND");
+		}
+
+		GSTUserSession gstUserSession = gstUserSessionServices.getUserSessionsByName(USERNAME);
+
+		if (gstUserSession == null) {
+
+			throw new RuntimeException("SESSION_NOT_FOUND");
+		}
+
+		APIDetails apiDetails;
+
+		if ("NRTN".equalsIgnoreCase(action)) {
+
+			apiDetails = apiDetailsImpl.findByName(Constants.GET_OTHER_THAN_RETURN_LEDGER_DETAILS);
+
+		} else {
+
+			apiDetails = apiDetailsImpl.findByName(Constants.GET_RETURN_LEDGER);
+		}
+		// ============================================================
+		// CHECK DUPLICATE ENTRY
+		// ============================================================
+
+		boolean alreadyExists = ledgerCommonDetailsRepository.existsByGstinAndActionAndFromDateAndToDate(gstin, action,
+				fromDate, toDate);
+
+		if (alreadyExists) {
+
+			log.warn("⚠ ENTRY ALREADY EXISTS GSTIN={} ACTION={} FROM={} TO={}", gstin, action, fromDate, toDate);
+
+			LedgerCommonDetails entry = new LedgerCommonDetails();
+			LedgerInitialJson ledgerInitialJson = new LedgerInitialJson();
+
+			entry.setGstin(gstin);
+			entry.setAction(action);
+			entry.setFromDate(fromDate);
+			entry.setToDate(toDate);
+			entry.setIsProcessed(false);
+			entry.setApprvdt(apprvDate);
+			entry.setAuthstatus(authstatus);
+			entry.setMsg("ALREADY EXISTS : " + fromDate + " TO " + toDate);
+			entry.setStatus("ALREADY_EXISTS");
+
+			ledgerInitialJson.setGstin(gstin);
+			ledgerInitialJson.setFrDt(fromDate);
+			ledgerInitialJson.setToDt(toDate);
+			ledgerInitialJson.setRegularTaxpayerId(regulartaxpayerid);
+			ledgerInitialJson.setMsg("ALREADY EXISTS : " + fromDate + " TO " + toDate);
+			ledgerCommonDetailsRepository.save(entry);
+			//ledgerInitialJsonRepository.save(ledgerInitialJson);
+
+			log.info("💾 Duplicate Entry Saved GSTIN={}", gstin);
+
+			return;
+		}
+
+		HttpHeaders headers = authenticationHelper.getDefaultHeaders(masterData, gstUserSession.getAuthToken(),
+				apiDetails.getApiContentType());
+
+		Map<String, String> params = getParamsForGetReturnFileLedger(apiDetails, masterData, action, gstin,
+				formattedFromDate, formattedToDate);
+
+		String path = authenticationHelper.getUriWithParam(authenticationHelper.getFullPath(masterData, apiDetails),
+				params);
+
+		log.info("📡 API PATH={}", path);
+
+		GSTCommonResponseBean response = restClient.get(path, GSTCommonResponseBean.class, headers);
+
+		LedgerCommonDetails entity = new LedgerCommonDetails();
+		LedgerInitialJson ledgerInitialJson = new LedgerInitialJson();
+		entity.setGstin(gstin);
+		entity.setAction(action);
+		entity.setFromDate(fromDate);
+		entity.setToDate(toDate);
+		entity.setUrl(path);
+
+		ledgerInitialJson.setGstin(gstin);
+		ledgerInitialJson.setLedgerTyp(action);
+		ledgerInitialJson.setFrDt(fromDate);
+		ledgerInitialJson.setToDt(toDate);
+		ledgerInitialJson.setRegularTaxpayerId(regulartaxpayerid);
+
+		// ============================================================
+		// SUCCESS
+		// ============================================================
+
+		if (response != null && "1".equals(response.getStatus_cd())) {
+
+			byte[] decodedBytes = Base64.getDecoder().decode(response.getData());
+
+			String decodedJson = new String(decodedBytes, StandardCharsets.UTF_8);
+
+			entity.setEntityJson(decodedJson);
+
+			entity.setIsProcessed(true);
+
+			entity.setMsg("SUCCESS");
+
+			entity.setStatus("UPDATED");
+
+			JsonNode jsonNode = objectMapper.readTree(decodedJson);
+			ledgerInitialJson.setJsondata(jsonNode);
+			ledgerInitialJson.setIsSuccess(true);
+			ledgerInitialJson.setMsg("SUCCESS");
+
+			log.info("✅ SUCCESS GSTIN={}", gstin);
+
+		} else {
+
+			entity.setIsProcessed(false);
+			entity.setStatus("NOT_FOUND");
+			entity.setEntityJson(objectMapper.writeValueAsString(response));
+
+		    ledgerInitialJson.setJsondata( objectMapper.valueToTree(response));
+			ledgerInitialJson.setIsSuccess(false);
+
+			String errorMsg = "GST_SERVER_ERROR";
+
+			if (response != null && response.getError() != null && response.getError().get("message") != null) {
+
+				errorMsg = response.getError().get("message");
+			}
+
+			entity.setMsg(errorMsg);
+			ledgerInitialJson.setMsg(errorMsg);
+			log.error("❌ GST ERROR GSTIN={} msg={}", gstin, errorMsg);
+		}
+
+		ledgerCommonDetailsRepository.save(entity);
+		ledgerInitialJsonRepository.save(ledgerInitialJson);
+
+		log.info("💾 Ledger Saved GSTIN={}", gstin);
+	}
+
 	// ============================================================
 	// SAVE SKIPPED RECORD
 	// ============================================================
 
 	private void saveSkippedRecord(String gstin, String action, LocalDate fromDate, LocalDate toDate,
-			LocalDate apprvDate, String msg) {
+			LocalDate apprvDate, String msg, Long regulartaxpayerid) {
 
 		try {
 
 			LedgerCommonDetails entity = new LedgerCommonDetails();
-
+			LedgerInitialJson ledgerInitialJson = new LedgerInitialJson();
 			entity.setGstin(gstin);
 
 			entity.setAction(action);
@@ -653,7 +858,16 @@ public class CommonControllerGstrUtilityImpl {
 
 			entity.setMsg(msg);
 
+			ledgerInitialJson.setGstin(gstin);
+			ledgerInitialJson.setFrDt(fromDate);
+			ledgerInitialJson.setToDt(toDate);
+			ledgerInitialJson.setIsSuccess(false);
+			ledgerInitialJson.setRegularTaxpayerId(regulartaxpayerid);
+			ledgerInitialJson.setApprvdt(apprvDate);
+			ledgerInitialJson.setMsg("SKIPPED : " + fromDate + " TO " + toDate);
+
 			ledgerCommonDetailsRepository.save(entity);
+			ledgerInitialJsonRepository.save(ledgerInitialJson);
 
 		} catch (Exception e) {
 
@@ -682,5 +896,173 @@ public class CommonControllerGstrUtilityImpl {
 
 		return params;
 	}
+
+	// ============================================================
+	// PROCEDURE DEPENDENT
+	// ============================================================
+
+	public String getLedgerForMultipleGSTNFunctionDependent(String action, String fr_dt, String to_dt) {
+
+		long startTime = System.currentTimeMillis();
+
+		log.info("=================================================");
+		log.info("▶ LEDGER MULTIPLE GSTIN PROCESS START");
+		log.info("📌 action={} | fr_dt={} | to_dt={}", action, fr_dt, to_dt);
+		log.info("=================================================");
+
+		DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+		DateTimeFormatter outputFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+
+		LocalDate fromDate;
+		LocalDate toDate;
+
+		try {
+
+			fromDate = LocalDate.parse(fr_dt, inputFormatter);
+
+			toDate = LocalDate.parse(to_dt, inputFormatter);
+
+		} catch (Exception e) {
+
+			log.error("❌ Invalid Date Format", e);
+
+			return "Invalid date format. Required yyyy-MM-dd";
+		}
+
+		if (fromDate.isAfter(toDate)) {
+
+			log.warn("⚠ fromDate > toDate");
+
+			return "Invalid Date Range";
+		}
+
+		// ============================================================
+		// FETCH GSTINS
+		// ============================================================
+
+		List<LedgerGstinProjection> gstinList = regularTaxpayerRepository.getGstinForLedgerProcedure(fr_dt, to_dt,
+				action);
+
+		log.info("📦 Total GSTIN Found={}", gstinList.size());
+
+		int successCount = 0;
+		int failCount = 0;
+		int skippedCount = 0;
+		int processed = 0;
+
+		for (LedgerGstinProjection taxpayer : gstinList) {
+
+			processed++;
+
+			String gstin = taxpayer.getGstin();
+
+			LocalDate apprvDate = null;
+
+			try {
+
+				String apprvdtString = taxpayer.getApprvdt();
+
+				if (apprvdtString != null && !apprvdtString.trim().isEmpty()
+						&& !"null".equalsIgnoreCase(apprvdtString)) {
+
+					apprvDate = LocalDate.parse(apprvdtString);
+				}
+
+			} catch (Exception e) {
+
+				log.error("❌ Invalid Approval Date for GSTIN={} | apprvdt={}", gstin, taxpayer.getApprvdt(), e);
+
+				skippedCount++;
+
+				continue;
+			}
+
+			if (apprvDate == null) {
+
+				log.warn("⏭ Skipping GSTIN={} because Approval Date is null/invalid", gstin);
+
+				skippedCount++;
+
+				continue;
+			}
+
+			log.info("-------------------------------------------------");
+			log.info("🔄 Processing {}/{}", processed, gstinList.size());
+			log.info("📌 GSTIN={}", gstin);
+			log.info("📌 Approval Date={}", apprvDate);
+			log.info("-------------------------------------------------");
+
+			try {
+
+				// ====================================================
+				// CASE 1
+				// APPROVAL DATE AFTER TO DATE
+				// ====================================================
+
+				if (apprvDate.isAfter(toDate) ) {
+
+					log.warn("⏭ Skipping GSTIN={} because apprvdt > toDate", gstin);
+
+					saveSkippedRecord(gstin, action, fromDate, toDate, apprvDate, "APPROVAL_DATE_AFTER_TO_DATE", taxpayer.getRegulartaxpayerid());
+
+					skippedCount++;
+
+					continue;
+				}
+
+				LocalDate finalFromDate = fromDate;
+
+				// ====================================================
+				// CASE 2
+				// APPROVAL DATE BETWEEN RANGE
+				// ====================================================
+
+//				if ((apprvDate.isEqual(fromDate) || apprvDate.isAfter(fromDate)) && apprvDate.isBefore(toDate)) {
+//
+//					finalFromDate = apprvDate;
+//
+//					log.info("📌 Adjusted FromDate={} for GSTIN={}", finalFromDate, gstin);
+//				}
+				if ((apprvDate.isEqual(fromDate) || apprvDate.isAfter(fromDate))
+				        && (apprvDate.isEqual(toDate) || apprvDate.isBefore(toDate))) {
+
+				    finalFromDate = apprvDate;
+
+				    log.info("📌 Adjusted FromDate={} for GSTIN={}", finalFromDate, gstin);
+				}
+
+				// ====================================================
+				// PROCESS API
+				// ====================================================
+
+				callLedgerApiByFunction(gstin, action, finalFromDate, toDate, outputFormatter, apprvDate,
+						taxpayer.getAuthstatus(), taxpayer.getRegulartaxpayerid());
+
+				successCount++;
+
+			} catch (Exception e) {
+
+				failCount++;
+
+				log.error("❌ Failed GSTIN={}", gstin, e);
+			}
+		}
+
+		long endTime = System.currentTimeMillis();
+
+		log.info("=================================================");
+		log.info("✅ LEDGER MULTIPLE GSTIN PROCESS COMPLETED");
+		log.info("📌 Total={}", processed);
+		log.info("✅ Success={}", successCount);
+		log.info("❌ Failed={}", failCount);
+		log.info("⏭ Skipped={}", skippedCount);
+		log.info("⏱ Time Taken={} ms", (endTime - startTime));
+		log.info("=================================================");
+
+		return "Processed Successfully";
+	}
+
+	// TODO Auto-generated method stub
 
 }

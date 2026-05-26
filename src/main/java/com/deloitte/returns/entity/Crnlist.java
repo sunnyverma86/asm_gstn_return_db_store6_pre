@@ -15,7 +15,7 @@ import lombok.ToString;
 @NoArgsConstructor
 @ToString
 @Entity
-@Table(name = "crn_list", schema = "crn_details")
+@Table(name = "crn_list", schema = "common")
 public class Crnlist {
 
 	@Id

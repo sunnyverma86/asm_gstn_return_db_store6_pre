@@ -20,7 +20,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "file_names_common_adjudication", schema = "asm")
+@Table(name = "file_names_common_adjudication", schema = "common")
 @Entity
 public class CommonFileDetailsAdjudication {
 

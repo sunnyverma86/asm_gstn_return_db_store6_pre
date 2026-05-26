@@ -2,7 +2,7 @@ package com.deloitte.service.support;
 
 import com.deloitte.common.entity.GSTUserSession;
 import com.deloitte.common.entity.MasterData;
-import com.deloitte.returns.entity.AlertJson;
+import com.deloitte.returns.entity.filecounter.AlertJson;
 
 public interface ArnUpdateHandler {
 

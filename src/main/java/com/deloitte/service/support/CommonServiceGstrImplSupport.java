@@ -11,26 +11,26 @@ import com.deloitte.common.bean.GSTCommonResponseBean;
 import com.deloitte.common.constant.Constants;
 import com.deloitte.common.entity.APIDetails;
 import com.deloitte.common.entity.MasterData;
-import com.deloitte.returns.entity.BaseJsonEntity;
-import com.deloitte.returns.entity.Cmp08InitialJson;
-import com.deloitte.returns.entity.Itc02InitialJson;
-import com.deloitte.returns.entity.PaymentInitialJson;
-import com.deloitte.returns.entity.R10InitialJson;
-import com.deloitte.returns.entity.R11InitialJson;
-import com.deloitte.returns.entity.R1InitialJson;
-import com.deloitte.returns.entity.R1aInitialJson;
-import com.deloitte.returns.entity.R2bInitialJson;
-import com.deloitte.returns.entity.R3bInitialJson;
-import com.deloitte.returns.entity.R4InitialJson;
-import com.deloitte.returns.entity.R5InitialJson;
-import com.deloitte.returns.entity.R6InitialJson;
-import com.deloitte.returns.entity.R7InitialJson;
-import com.deloitte.returns.entity.R8InitialJson;
-import com.deloitte.returns.entity.R98aInitialJson;
-import com.deloitte.returns.entity.R9InitialJson;
-import com.deloitte.returns.entity.R9aInitialJson;
-import com.deloitte.returns.entity.R9cInitialJson;
-import com.deloitte.returns.entity.ReturnGzJsonStorage;
+import com.deloitte.returns.entity.filecounter.ReturnGzJsonStorage;
+import com.deloitte.returns.entity.log.BaseJsonEntity;
+import com.deloitte.returns.entity.log.Cmp08InitialJson;
+import com.deloitte.returns.entity.log.Itc02InitialJson;
+import com.deloitte.returns.entity.log.PaymentInitialJson;
+import com.deloitte.returns.entity.log.R10InitialJson;
+import com.deloitte.returns.entity.log.R11InitialJson;
+import com.deloitte.returns.entity.log.R1InitialJson;
+import com.deloitte.returns.entity.log.R1aInitialJson;
+import com.deloitte.returns.entity.log.R2bInitialJson;
+import com.deloitte.returns.entity.log.R3bInitialJson;
+import com.deloitte.returns.entity.log.R4InitialJson;
+import com.deloitte.returns.entity.log.R5InitialJson;
+import com.deloitte.returns.entity.log.R6InitialJson;
+import com.deloitte.returns.entity.log.R7InitialJson;
+import com.deloitte.returns.entity.log.R8InitialJson;
+import com.deloitte.returns.entity.log.R98aInitialJson;
+import com.deloitte.returns.entity.log.R9InitialJson;
+import com.deloitte.returns.entity.log.R9aInitialJson;
+import com.deloitte.returns.entity.log.R9cInitialJson;
 import com.deloitte.service.impl.APIDetailsImpl;
 
 @Component
@@ -56,7 +56,7 @@ public class CommonServiceGstrImplSupport {
 		params.put("action", apiDetails.getApiAction());
 		params.put("state_cd", masterData.getStateCd());
 		params.put("date", date);
-		if (application.equalsIgnoreCase("cmp08")) {
+		if (application.equalsIgnoreCase("CM8")) {
 			params.put("type", "CM8");
 		} else if (application.equalsIgnoreCase("payment")) { // new add
 			params.put("file_type", "EODCIN"); // new add
@@ -212,6 +212,8 @@ public class CommonServiceGstrImplSupport {
 		} else if (application.equalsIgnoreCase("payment")) { // new add
 			params.put("action", "FILEDTLS");
 			params.put("file_type", "EODCIN"); // new add
+		} else if (application.equalsIgnoreCase("CM8")) {
+			params.put("type", "CM8");
 		} else if (application.equalsIgnoreCase("R1A")) {
 			params.put("type", "R1A");
 		} else if (application.equalsIgnoreCase("R1")) {

@@ -13,8 +13,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
 import com.deloitte.common.bean.DateHepler;
-import com.deloitte.common.entity.DateCountData;
-import com.deloitte.returns.entity.ReturnFileCountResponse;
+import com.deloitte.returns.entity.ReturnDateLog;
+import com.deloitte.returns.entity.filecounter.DateCountData;
+import com.deloitte.returns.entity.filecounter.ReturnFileCountResponse;
+import com.deloitte.returns.repository.common.ReturnDateLogRepository;
 import com.deloitte.returns.repository.common.ReturnFileCountResponseRepository;
 import com.deloitte.returns.repositoryCommon.DateCountDataRepository;
 import com.deloitte.service.impl.CommonServiceGstrImpl;
@@ -40,6 +42,9 @@ public class CommonServiceGstrUtilityImpl {
 	@Autowired
 	private FileDownloadHelperCommon fileDownloadHelperCommon;
 
+	@Autowired
+	private ReturnDateLogRepository returnDateLogRepository;
+
 	private static final String SUCCESS = "SUCCESS";
 	private static final String FAIL = "FAIL";
 	private static final String IN_PROGRESS = "IN_PROGRESS";
@@ -63,82 +68,91 @@ public class CommonServiceGstrUtilityImpl {
 		try {
 
 			/*
-			 * ===================================================== STEP-1 : FETCH FAILED   "2026-01-04"
-			 * RECORDS =====================================================
+			 * ===================================================== STEP-1 : FETCH FAILED
+			 * "2026-01-04" RECORDS =====================================================
 			 */
-			List<ReturnFileCountResponse> failedRecords = returnFileCountResponseRepository
-					.findAllByTyAndIsSuccessFalseAndCounterAttemptLessThanAndDtGreaterThanOrderByDtDesc(application, 10,
-							Date.valueOf("2026-04-25"));
-
-			/*
-			 * ===================================================== PROCESS FAILED RECORDS
-			 * FIRST =====================================================
-			 */
-			if (failedRecords != null && !failedRecords.isEmpty()) {
-
-				log.warn("FAILED RECORDS FOUND | APP={} | COUNT={}", application, failedRecords.size());
-
-				for (ReturnFileCountResponse failedRecord : failedRecords) {
-
-					try {
-
-						String failedDate = failedRecord.getDt().toLocalDate().format(formatter);
-
-						log.warn("RETRY STARTED | APP={} | DATE={} | ATTEMPT={}", application, failedDate,
-								failedRecord.getCounterAttempt());
-
-						long retryStartTime = System.currentTimeMillis();
-
-						String retryResponse = processDateForGstr(username, failedDate, application);
-
-						long retryTime = System.currentTimeMillis() - retryStartTime;
-
-						log.info("RETRY COMPLETED | APP={} | DATE={} | TIME={} ms | RESPONSE={}", application,
-								failedDate, retryTime, retryResponse);
-
-					} catch (Exception retryException) {
-
-						log.error("RETRY FAILED | APP={} | DATE={} | ERROR={}", application, failedRecord.getDt(),
-								retryException.getMessage(), retryException);
-					}
-				}
-
-				long failedProcessingTime = System.currentTimeMillis() - overallStartTime;
-
-				log.info("ALL FAILED RECORDS PROCESSED | APP={} | TOTAL_TIME={} ms", application, failedProcessingTime);
-
-				return "FAILED_RECORDS_PROCESSED";
-			}
+//			List<ReturnFileCountResponse> failedRecords = returnFileCountResponseRepository
+//					.findAllByTyAndIsSuccessFalseAndCounterAttemptLessThanAndDtGreaterThanOrderByDtDesc(application, 10,
+//							Date.valueOf("2026-04-25"));
+//
+//			/*
+//			 * ===================================================== PROCESS FAILED RECORDS
+//			 * FIRST =====================================================
+//			 */
+//			if (failedRecords != null && !failedRecords.isEmpty()) {
+//
+//				log.warn("FAILED RECORDS FOUND | APP={} | COUNT={}", application, failedRecords.size());
+//
+//				for (ReturnFileCountResponse failedRecord : failedRecords) {
+//
+//					try {
+//
+//						String failedDate = failedRecord.getDt().toLocalDate().format(formatter);
+//
+//						log.warn("RETRY STARTED | APP={} | DATE={} | ATTEMPT={}", application, failedDate,
+//								failedRecord.getCounterAttempt());
+//
+//						long retryStartTime = System.currentTimeMillis();
+//
+//						String retryResponse = processDateForGstr(username, failedDate, application);
+//
+//						long retryTime = System.currentTimeMillis() - retryStartTime;
+//
+//						log.info("RETRY COMPLETED | APP={} | DATE={} | TIME={} ms | RESPONSE={}", application,
+//								failedDate, retryTime, retryResponse);
+//
+//					} catch (Exception retryException) {
+//
+//						log.error("RETRY FAILED | APP={} | DATE={} | ERROR={}", application, failedRecord.getDt(),
+//								retryException.getMessage(), retryException);
+//					}
+//				}
+//
+//				long failedProcessingTime = System.currentTimeMillis() - overallStartTime;
+//
+//				log.info("ALL FAILED RECORDS PROCESSED | APP={} | TOTAL_TIME={} ms", application, failedProcessingTime);
+//
+//				return "FAILED_RECORDS_PROCESSED";
+//			}
 
 			/*
 			 * ===================================================== STEP-2 : FETCH LAST
 			 * SUCCESS RECORD =====================================================
 			 */
-			String startDate;
-
-			Optional<ReturnFileCountResponse> successRecordOpt = returnFileCountResponseRepository
-					.findTopByTyAndMsgOrderByDtDesc(application, SUCCESS);
-
-			if (successRecordOpt.isPresent()) {
-
-				LocalDate nextDate = successRecordOpt.get().getDt().toLocalDate().plusDays(1);
-
-				startDate = nextDate.format(formatter);
-
-				log.info("LAST SUCCESS RECORD FOUND | APP={} | NEXT_START_DATE={}", application, startDate);
-
-			} else {
-
-				startDate = "09-01-2025";
-
-				log.warn("NO SUCCESS RECORD FOUND | APP={} | USING_DEFAULT_START_DATE={}", application, startDate);
-			}
+//			String startDate;
+//
+//			Optional<ReturnFileCountResponse> successRecordOpt = returnFileCountResponseRepository
+//					.findTopByTyAndMsgOrderByDtDesc(application, SUCCESS);
+//
+//			if (successRecordOpt.isPresent()) {
+//
+//				LocalDate nextDate = successRecordOpt.get().getDt().toLocalDate().plusDays(1);
+//
+//				startDate = nextDate.format(formatter);
+//
+//				log.info("LAST SUCCESS RECORD FOUND | APP={} | NEXT_START_DATE={}", application, startDate);
+//
+//			} else {
+//
+//				startDate = "18-05-2026";
+//
+//				log.warn("NO SUCCESS RECORD FOUND | APP={} | USING_DEFAULT_START_DATE={}", application, startDate);
+//			}
 
 			/*
 			 * ===================================================== STEP-3 : END DATE
 			 * =====================================================
 			 */
-			startDate = "16-05-2026";
+			ReturnDateLog logData = returnDateLogRepository.findTopByOrderByIdDesc();
+
+			String startDate;
+
+			if (logData != null) {
+				startDate = logData.getStartDate();
+			} else {
+				startDate = "12-05-2026";
+			}
+
 			String endDate = LocalDate.now().minusDays(1).format(formatter);
 
 			log.info("NORMAL PROCESS STARTED | APP={} | START_DATE={} | END_DATE={}", application, startDate, endDate);
@@ -330,6 +344,30 @@ public class CommonServiceGstrUtilityImpl {
 
 			log.info("DATE_COUNT_DATA_FETCHED | App={} | Date={} | Count={}", applicationCheck, date,
 					dateCountDataList.size());
+			
+			if(response.equalsIgnoreCase("No files available for download."))
+			{
+				Optional<ReturnFileCountResponse> optionalReturnFileCountResponse = returnFileCountResponseRepository
+						.findByTyAndDt(application, sqlDate);
+
+				ReturnFileCountResponse objReturnFileCountResponse = optionalReturnFileCountResponse.get();
+				
+				Integer currentAttempt = entity.getCounterAttempt();
+				objReturnFileCountResponse.setIsSuccess(false);
+
+				objReturnFileCountResponse.setMsg(FAIL);
+
+				objReturnFileCountResponse.setCounterAttempt(currentAttempt + 1);
+				returnFileCountResponseRepository.save(objReturnFileCountResponse);
+
+				long totalTime = System.currentTimeMillis() - startTime;
+
+				log.info("END :: processDateForGstr | App={} | Date={} | Success={} | Attempt={} | Time={} ms", application,
+						date, entity.getIsSuccess(), entity.getCounterAttempt(), totalTime);
+
+				return response;
+				
+			}
 
 			/*
 			 * ========================================================= STEP-7 : CHECK FAIL
@@ -368,6 +406,15 @@ public class CommonServiceGstrUtilityImpl {
 
 			} else {
 
+				if(response.equalsIgnoreCase("No files available for download."))
+				{
+					Integer currentAttempt = entity.getCounterAttempt();
+					objReturnFileCountResponse.setIsSuccess(false);
+
+					objReturnFileCountResponse.setMsg(FAIL);
+
+					objReturnFileCountResponse.setCounterAttempt(currentAttempt + 1);
+				}
 				objReturnFileCountResponse.setIsSuccess(true);
 
 				objReturnFileCountResponse.setMsg(SUCCESS);

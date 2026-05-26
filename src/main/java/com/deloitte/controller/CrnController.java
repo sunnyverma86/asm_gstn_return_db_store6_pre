@@ -59,6 +59,7 @@ public class CrnController {
 
 			return ResponseEntity.ok(response);
 
+			
 		} catch (Exception e) {
 
 			log.error("CRN processing failed", e);
@@ -66,6 +67,15 @@ public class CrnController {
 			return ResponseEntity.internalServerError().body("CRN processing failed: " + e.getMessage());
 		}
 	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
 
 	/**
 	 * SINGLE CLICK COMPLETE FLOW

@@ -18,6 +18,9 @@ import lombok.extern.log4j.Log4j2;
 @Log4j2
 public class LedgerController {
 
+	@Autowired
+	CommonControllerGstrUtilityImpl commonControllerGstrUtilityImpl;
+
 	@GetMapping("/schedule-ledger-on-automatic")
 	public ResponseEntity<String> scheduleLedgerOnAutomatic(@RequestParam String action, @RequestParam String fr_dt,
 			@RequestParam String to_dt) {
@@ -51,6 +54,39 @@ public class LedgerController {
 		}
 	}
 
+	@GetMapping("/schedule-ledger-function-depedent")
+	public ResponseEntity<String> scheduleLedgerFunctionDependent(@RequestParam String action,
+			@RequestParam String fr_dt, @RequestParam String to_dt) {
+
+		long start = System.currentTimeMillis();
+
+		log.info("=================================================");
+		log.info("▶ LEDGER SCHEDULER API STARTED");
+		log.info("📌 action={} | fr_dt={} | to_dt={}", action, fr_dt, to_dt);
+		log.info("=================================================");
+
+		try {
+
+			String response = commonControllerGstrUtilityImpl.getLedgerForMultipleGSTNFunctionDependent(action, fr_dt,
+					to_dt);
+
+			long end = System.currentTimeMillis();
+
+			log.info("=================================================");
+			log.info("✅ LEDGER SCHEDULER API COMPLETED");
+			log.info("⏱ Total Time={} ms", (end - start));
+			log.info("=================================================");
+
+			return ResponseEntity.ok(response);
+
+		} catch (Exception e) {
+
+			log.error("❌ Controller Exception", e);
+
+			return ResponseEntity.internalServerError().body("FAILED : " + e.getMessage());
+		}
+	}
+
 	// http://localhost:8019/common/gstr/scheduleLedgerCashForSingleGSTN?action=CASH&fr_dt=01-04-2023&to_dt=31-03-2024
 	// http://localhost:8020/common/gstr/scheduleLedgerCashForSingleGSTN?action=TAX&fr_dt=042023&to_dt=032024
 
@@ -60,9 +96,6 @@ public class LedgerController {
 	// http://localhost:8020/common/gstr/scheduleLedger?action=CASH&fr_dt=01-04-2023&to_dt=31-03-2024
 	// https://boapi.internal.gst.gov.in/govtapi/v0.3/ledgers?fr_dt=042025&to_dt=032026&action=TAX&gstin=18ADIPL6822C1ZN
 	// http://localhost:8020/common/gstr/scheduleLedgerCashForSingleGSTN?action=TAX&fr_dt=042023&to_dt=032024
-
-	@Autowired
-	CommonControllerGstrUtilityImpl commonControllerGstrUtilityImpl;
 
 	@GetMapping("/single")
 	public ResponseEntity<String> singleLedger(@RequestParam String action, @RequestParam String gstin,

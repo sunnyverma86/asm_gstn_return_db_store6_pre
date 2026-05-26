@@ -15,7 +15,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.deloitte.common.entity.GstinEntity;
+import com.deloitte.returns.entity.GstinEntity;
 import com.deloitte.returns.repository.common.GstinRepository;
 
 @Service

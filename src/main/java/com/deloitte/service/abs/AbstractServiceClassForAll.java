@@ -47,7 +47,7 @@ import com.deloitte.service.impl.APIDetailsImpl;
 import com.deloitte.service.support.CommonServiceGstrImplSupport;
 import com.deloitte.service.support.FileDownloadHelperCommon;
 import com.deloitte.service.support.FileDownloadHelperForGstr2a;
-import com.deloitte.service.support.LogbackConfig;
+import com.deloitte.service.utility.LogbackConfig;
 
 public class AbstractServiceClassForAll {
 

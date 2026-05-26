@@ -17,7 +17,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "date_crn_common", schema = "public")
+@Table(name = "date_crn_common", schema = "common")
 @Entity
 public class CommonCrnDate {
 

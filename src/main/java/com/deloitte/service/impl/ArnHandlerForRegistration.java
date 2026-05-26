@@ -23,7 +23,7 @@ import com.deloitte.common.constant.Constants;
 import com.deloitte.common.entity.APIDetails;
 import com.deloitte.common.entity.GSTUserSession;
 import com.deloitte.common.entity.MasterData;
-import com.deloitte.returns.entity.GstinEntityRegistration;
+import com.deloitte.returns.entity.filecounter.GstinEntityRegistration;
 import com.deloitte.returns.entity.registration.AlertDetailsRegistration;
 import com.deloitte.returns.repository.GstinEntityRegistrationRepository;
 import com.deloitte.returns.repository.common.ArnDetailCommonRegistrationRepository;

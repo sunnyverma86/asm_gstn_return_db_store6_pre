@@ -22,7 +22,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "ledger_data_json_file", schema = "asm")
+@Table(name = "ledger_data_json_file", schema = "common")
 public class LedgerDataJsonFile {
 
 	@Id

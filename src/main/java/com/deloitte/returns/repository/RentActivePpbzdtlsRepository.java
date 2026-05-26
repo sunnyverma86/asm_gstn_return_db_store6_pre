@@ -5,7 +5,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.deloitte.returns.entity.RentActivePpbzdtls;
+import com.deloitte.returns.entity.registration.RentActivePpbzdtls;
 
 @Repository
 public interface RentActivePpbzdtlsRepository extends JpaRepository<RentActivePpbzdtls, Long> {

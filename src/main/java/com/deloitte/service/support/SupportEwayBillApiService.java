@@ -32,11 +32,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import com.deloitte.common.bean.Result;
-import com.deloitte.returns.entity.AEwayBill.DateEwayGzFilePath;
+import com.deloitte.returns.entity.DateEwayGzFilePath;
+import com.deloitte.returns.entity.EwayFileCountResponse;
+import com.deloitte.returns.entity.EwayFileDetailResponse;
+import com.deloitte.returns.entity.EwayGzJsonStorage;
 import com.deloitte.returns.entity.AEwayBill.EWayBillAuthBean;
-import com.deloitte.returns.entity.AEwayBill.EwayFileCountResponse;
-import com.deloitte.returns.entity.AEwayBill.EwayFileDetailResponse;
-import com.deloitte.returns.entity.AEwayBill.EwayGzJsonStorage;
 import com.deloitte.returns.entity.AEwayBill.EwbCountData;
 import com.deloitte.returns.entity.AEwayBill.EwbDetailsData;
 import com.deloitte.service.abs.AbstractSupportEwayBillApiService;

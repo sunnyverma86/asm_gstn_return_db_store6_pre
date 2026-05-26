@@ -1,0 +1,37 @@
+package com.deloitte.returns.entity;
+
+
+
+import java.sql.Timestamp;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Entity
+@Table(name = "eway_file_detail_response", schema = "common")
+public class EwayFileDetailResponse {
+
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long returnFileDetailId;
+
+	private Long returnFileCountId;
+	
+	private Integer fileNum;
+	private Integer cnt;
+	private String url;
+	private Boolean isSuccess;
+	private String msg;
+	private String dt;
+	private Timestamp insertDt;
+
+}

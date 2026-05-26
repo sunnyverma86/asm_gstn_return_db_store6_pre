@@ -21,27 +21,31 @@ import com.deloitte.returns.repository.Gstr9aRepository;
 import com.deloitte.returns.repository.Gstr9cRepository;
 import com.deloitte.returns.repository.Itc2Repository;
 import com.deloitte.returns.repository.PaymentRepository;
-import com.deloitte.returns.repository.common.Cmp08InitialJsonRepository;
-import com.deloitte.returns.repository.common.Itc02InitialJsonRepository;
-import com.deloitte.returns.repository.common.PaymentInitialJsonRepository;
-import com.deloitte.returns.repository.common.R10InitialJsonRepository;
-import com.deloitte.returns.repository.common.R11InitialJsonRepository;
-import com.deloitte.returns.repository.common.R1InitialJsonRepository;
-import com.deloitte.returns.repository.common.R1aInitialJsonRepository;
-import com.deloitte.returns.repository.common.R2bInitialJsonRepository;
-import com.deloitte.returns.repository.common.R3bInitialJsonRepository;
-import com.deloitte.returns.repository.common.R4InitialJsonRepository;
-import com.deloitte.returns.repository.common.R5InitialJsonRepository;
-import com.deloitte.returns.repository.common.R6InitialJsonRepository;
-import com.deloitte.returns.repository.common.R7InitialJsonRepository;
-import com.deloitte.returns.repository.common.R8InitialJsonRepository;
-import com.deloitte.returns.repository.common.R98aInitialJsonRepository;
-import com.deloitte.returns.repository.common.R9InitialJsonRepository;
-import com.deloitte.returns.repository.common.R9aInitialJsonRepository;
-import com.deloitte.returns.repository.common.R9cInitialJsonRepository;
 import com.deloitte.returns.repository.common.ReturnGzJsonStorageRepository;
+import com.deloitte.returns.repository.log.Cmp08InitialJsonRepository;
+import com.deloitte.returns.repository.log.Itc02InitialJsonRepository;
+import com.deloitte.returns.repository.log.PaymentInitialJsonRepository;
+import com.deloitte.returns.repository.log.R10InitialJsonRepository;
+import com.deloitte.returns.repository.log.R11InitialJsonRepository;
+import com.deloitte.returns.repository.log.R1InitialJsonRepository;
+import com.deloitte.returns.repository.log.R1aInitialJsonRepository;
+import com.deloitte.returns.repository.log.R2bInitialJsonRepository;
+import com.deloitte.returns.repository.log.R3bInitialJsonRepository;
+import com.deloitte.returns.repository.log.R4InitialJsonRepository;
+import com.deloitte.returns.repository.log.R5InitialJsonRepository;
+import com.deloitte.returns.repository.log.R6InitialJsonRepository;
+import com.deloitte.returns.repository.log.R7InitialJsonRepository;
+import com.deloitte.returns.repository.log.R8InitialJsonRepository;
+import com.deloitte.returns.repository.log.R98aInitialJsonRepository;
+import com.deloitte.returns.repository.log.R9InitialJsonRepository;
+import com.deloitte.returns.repository.log.R9aInitialJsonRepository;
+import com.deloitte.returns.repository.log.R9cInitialJsonRepository;
 import com.deloitte.returns.repositoryCommon.DateReturnGzFilePathRepository;
 import com.deloitte.service.support.CommonServiceGstrImplSupport;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 public abstract class AbstractFileDownloadHelperCommon {
 
@@ -53,6 +57,12 @@ public abstract class AbstractFileDownloadHelperCommon {
 
 //	@Autowired
 //	protected RegistrationNormalTaxPayerRepository registrationNormalTaxPayerRepository;
+
+	@PersistenceContext
+	protected EntityManager entityManager;
+
+	@Autowired
+	protected ObjectMapper objectMapper;
 
 	@Autowired
 	protected Gstr7Repository gstr7Repository;

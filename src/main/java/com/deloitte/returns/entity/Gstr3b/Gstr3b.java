@@ -33,6 +33,14 @@ import lombok.Data;
 @Table(name = "gstr3b", schema = "gstr3b")
 public class Gstr3b implements Serializable {
 
+	//
+	@Column(name = "return_file_count_primary_id")
+	private Long returnFileCountPrimaryId;
+
+	@Column(name = "return_file_detail_primary_id")
+	private Long returnFileDetailPrimaryId;
+//
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;

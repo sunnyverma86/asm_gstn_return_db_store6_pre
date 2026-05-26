@@ -28,6 +28,14 @@ import lombok.NoArgsConstructor;
 @Table(name = "cmp08", schema = "cmp08")
 public class Cmp8 {
 
+	//
+	@Column(name = "return_file_count_primary_id")
+	private Long returnFileCountPrimaryId;
+
+	@Column(name = "return_file_detail_primary_id")
+	private Long returnFileDetailPrimaryId;
+//
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
@@ -48,7 +56,7 @@ public class Cmp8 {
 	protected void onUpdate() {
 		updatedDateTime = LocalDateTime.now();
 	}
-	
+
 	@JsonProperty("ret_period")
 	private String retPeriod;
 
@@ -67,8 +75,6 @@ public class Cmp8 {
 	@JsonProperty("isnil")
 	private String isnil;
 
-	
-
 	@JsonProperty("table3")
 	@OneToOne(cascade = CascadeType.ALL)
 	@JoinColumn(name = "table3_id")
@@ -79,13 +85,11 @@ public class Cmp8 {
 	@JoinColumn(name = "table4_id")
 	private Cmp8_Table4 table4;
 
-	
-
 	@JsonProperty("tax_pay")
 	@OneToMany(cascade = CascadeType.ALL)
 	@JoinColumn(name = "cmp8_id")
 	private List<Cmp8_TaxPay> taxPay;
-	
+
 	@JsonProperty("tax_paid")
 	@OneToOne(cascade = CascadeType.ALL)
 	@JoinColumn(name = "tax_paid_id")

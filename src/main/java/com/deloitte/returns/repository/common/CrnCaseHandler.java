@@ -3,7 +3,7 @@ package com.deloitte.returns.repository.common;
 import com.deloitte.common.entity.GSTUserSession;
 import com.deloitte.common.entity.MasterData;
 import com.deloitte.returns.entity.ReturnCountCrn;
-import com.deloitte.returns.entity.registration.ReturnCountCrnJson;
+import com.deloitte.returns.entity.filecounter.ReturnCountCrnJson;
 
 public interface CrnCaseHandler {
 

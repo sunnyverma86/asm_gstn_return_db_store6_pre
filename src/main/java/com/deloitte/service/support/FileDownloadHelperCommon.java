@@ -1,5 +1,6 @@
 package com.deloitte.service.support;
 
+
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.File;
@@ -19,6 +20,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -27,30 +29,9 @@ import java.util.zip.GZIPInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.deloitte.common.bean.Result;
-import com.deloitte.common.entity.DateReturnGzFilePath;
-import com.deloitte.returns.entity.BaseJsonEntity;
-import com.deloitte.returns.entity.Cmp08InitialJson;
-import com.deloitte.returns.entity.Itc02InitialJson;
-import com.deloitte.returns.entity.PaymentInitialJson;
-import com.deloitte.returns.entity.R10InitialJson;
-import com.deloitte.returns.entity.R11InitialJson;
-import com.deloitte.returns.entity.R1InitialJson;
-import com.deloitte.returns.entity.R1aInitialJson;
-import com.deloitte.returns.entity.R2bInitialJson;
-import com.deloitte.returns.entity.R3bInitialJson;
-import com.deloitte.returns.entity.R4InitialJson;
-import com.deloitte.returns.entity.R5InitialJson;
-import com.deloitte.returns.entity.R6InitialJson;
-import com.deloitte.returns.entity.R7InitialJson;
-import com.deloitte.returns.entity.R8InitialJson;
-import com.deloitte.returns.entity.R98aInitialJson;
-import com.deloitte.returns.entity.R9InitialJson;
-import com.deloitte.returns.entity.R9aInitialJson;
-import com.deloitte.returns.entity.R9cInitialJson;
-import com.deloitte.returns.entity.ReturnGzJsonStorage;
+import com.deloitte.returns.entity.DateReturnGzFilePath;
 import com.deloitte.returns.entity.Cmp8.Cmp8;
 import com.deloitte.returns.entity.Gstr1.Gstr1;
 import com.deloitte.returns.entity.Gstr10.Gstr10;
@@ -68,6 +49,26 @@ import com.deloitte.returns.entity.Gstr9a.Gstr9A;
 import com.deloitte.returns.entity.Gstr9c.Gstr9c;
 import com.deloitte.returns.entity.Itc2.Itc2;
 import com.deloitte.returns.entity.Payment.Payment;
+import com.deloitte.returns.entity.filecounter.ReturnGzJsonStorage;
+import com.deloitte.returns.entity.log.BaseJsonEntity;
+import com.deloitte.returns.entity.log.Cmp08InitialJson;
+import com.deloitte.returns.entity.log.Itc02InitialJson;
+import com.deloitte.returns.entity.log.PaymentInitialJson;
+import com.deloitte.returns.entity.log.R10InitialJson;
+import com.deloitte.returns.entity.log.R11InitialJson;
+import com.deloitte.returns.entity.log.R1InitialJson;
+import com.deloitte.returns.entity.log.R1aInitialJson;
+import com.deloitte.returns.entity.log.R2bInitialJson;
+import com.deloitte.returns.entity.log.R3bInitialJson;
+import com.deloitte.returns.entity.log.R4InitialJson;
+import com.deloitte.returns.entity.log.R5InitialJson;
+import com.deloitte.returns.entity.log.R6InitialJson;
+import com.deloitte.returns.entity.log.R7InitialJson;
+import com.deloitte.returns.entity.log.R8InitialJson;
+import com.deloitte.returns.entity.log.R98aInitialJson;
+import com.deloitte.returns.entity.log.R9InitialJson;
+import com.deloitte.returns.entity.log.R9aInitialJson;
+import com.deloitte.returns.entity.log.R9cInitialJson;
 import com.deloitte.service.abs.AbstractFileDownloadHelperCommon;
 import com.deloitte.service.utility.SftpUtil;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -692,6 +693,391 @@ public class FileDownloadHelperCommon extends AbstractFileDownloadHelperCommon {
 		}
 	}
 
+	public long saveDataFromJsonToDb(String application) {
+
+		long start = System.currentTimeMillis();
+
+		log.info("=================================================");
+		log.info("▶ START DB JSON → ENTITY ingestion");
+		log.info("📌 Application={}", application);
+		log.info("=================================================");
+
+		long totalProcessed = 0;
+		long totalFailed = 0;
+		int batchNumber = 0;
+
+		ExecutorService executorService = Executors.newFixedThreadPool(15);
+
+		try {
+
+			while (true) {
+
+				batchNumber++;
+
+				List<? extends BaseJsonEntity> list = fetchTop30(application);
+
+				if (list == null || list.isEmpty()) {
+
+					log.info("✅ No more records found");
+					break;
+				}
+
+				log.info("📦 Processing Batch={} | BatchSize={}", batchNumber, list.size());
+
+				List<CompletableFuture<Boolean>> futures = new ArrayList<>();
+
+				for (BaseJsonEntity record : list) {
+
+					CompletableFuture<Boolean> future = CompletableFuture.supplyAsync(() -> {
+
+						Long recordId = null;
+
+						try {
+
+							recordId = record.getId();
+
+							processJsonRecord(application, record);
+
+							record.setIsProcessed(true);
+
+							saveRecord(application, record);
+
+							//log.info("✔ Success recordId={}", recordId);
+
+							return true;
+
+						} catch (Exception ex) {
+
+							try {
+
+								record.setIsProcessed(false);
+
+								saveRecord(application, record);
+
+							} catch (Exception e) {
+
+								log.error("Unable to update failed status recordId={}", recordId, e);
+							}
+
+							log.error("❌ Failed recordId={} | error={}", recordId, ex.getMessage());
+
+							return false;
+						}
+
+					}, executorService);
+
+					futures.add(future);
+				}
+
+				long batchSuccess = futures.stream().map(CompletableFuture::join).filter(result -> result).count();
+
+				long batchFail = futures.size() - batchSuccess;
+
+				totalProcessed += batchSuccess;
+				totalFailed += batchFail;
+
+				log.info("✅ Batch Completed={} | Success={} | Failed={}", batchNumber, batchSuccess, batchFail);
+			}
+
+		} finally {
+
+			executorService.shutdown();
+		}
+
+		long time = System.currentTimeMillis() - start;
+
+		log.info("=================================================");
+		log.info("🏁 END DB JSON ingestion");
+		log.info("📌 Application={}", application);
+		log.info("✅ TotalProcessed={}", totalProcessed);
+		log.info("❌ TotalFailed={}", totalFailed);
+		log.info("⏱ TimeTaken={} ms", time);
+		log.info("=================================================");
+
+		return totalProcessed;
+	}
+
+	private void saveRecord(String application, BaseJsonEntity record) {
+
+		switch (application.toUpperCase()) {
+
+		case "GSTR1A":
+		case "R1A":
+			r1aRepo.save((R1aInitialJson) record);
+			break;
+
+		case "GSTR1":
+		case "R1":
+			r1Repo.save((R1InitialJson) record);
+			break;
+			
+		case "GSTR2B":
+		case "R2B":
+			r2bRepo.save((R2bInitialJson) record);
+			break;
+
+
+		case "GSTR3B":
+		case "R3B":
+			r3bRepo.save((R3bInitialJson) record);
+			break;
+			
+		case "GSTR4":
+		case "R4":
+			r4Repo.save((R4InitialJson) record);
+			break;
+		
+		case "GSTR5":
+		case "R5":
+			r5Repo.save((R5InitialJson) record);
+			break;
+			
+		case "GSTR6":
+		case "R6":
+			r6Repo.save((R6InitialJson) record);
+			break;
+			
+		case "GSTR7":
+		case "R7":
+			r7Repo.save((R7InitialJson) record);
+			break;
+			
+		case "GSTR8":
+		case "R8":
+			r8Repo.save((R8InitialJson) record);
+			break;
+			
+		case "GSTR9":
+		case "R9":
+			r9Repo.save((R9InitialJson) record);
+			break;
+			
+		case "GSTR10":
+		case "R10":
+			r10Repo.save((R10InitialJson) record);
+			break;
+			
+		case "GSTR11":
+		case "R11":
+			r11Repo.save((R11InitialJson) record);
+			break;
+
+		case "CM8":
+			cmp08Repo.save((Cmp08InitialJson) record);
+			break;
+			
+		case "PAYMENT":
+			paymentRepo.save((PaymentInitialJson) record);
+			break;
+			
+		case "GSTR9C":
+		case "R9C":
+			r9cRepo.save((R9cInitialJson) record);
+			break;
+			
+		case "GSTR9A":
+		case "R9A":
+			r9aRepo.save((R9aInitialJson) record);
+			break;
+			
+		case "GSTR98A":
+		case "R98A":
+			r98aRepo.save((R98aInitialJson) record);
+			break;
+
+		default:
+
+			throw new IllegalArgumentException("Unsupported application: " + application);
+		}
+	}
+
+	private void processJsonRecord(String application, BaseJsonEntity record) {
+
+		Long recordId = null;
+
+		try {
+
+			if (record == null) {
+
+				log.error("Record is null for application={}", application);
+
+				return;
+			}
+
+			recordId = record.getId();
+
+			JsonNode jsonNode = record.getJsonData();
+			
+			Long countId = record.getReturnFileCountPrimaryId();
+			Long DetailsId = record.getReturnFileDetailPrimaryId();
+
+			if (jsonNode == null || jsonNode.isNull() || jsonNode.isEmpty()) {
+
+				log.warn("Empty JSON found for application={}, recordId={}", application, recordId);
+
+				return;
+			}
+
+			log.info("Processing started for application={}, recordId={}", application, recordId);
+
+			switch (application.toUpperCase()) {
+
+			case "GSTR1":
+			case "R1":
+				Gstr1 gstr1 = objectMapper.treeToValue(jsonNode, Gstr1.class);
+				gstr1.setReturnFileCountPrimaryId(countId);
+				gstr1.setReturnFileDetailPrimaryId(DetailsId);
+				gstr1Repository.save(gstr1);
+				break;
+
+			case "GSTR2B":
+			case "R2B":
+				Gstr2b gstr2b = objectMapper.treeToValue(jsonNode, Gstr2b.class);
+				gstr2b.setReturnFileCountPrimaryId(countId);
+				gstr2b.setReturnFileDetailPrimaryId(DetailsId);
+				gstr2bRepository.save(gstr2b);
+				break;
+
+			case "GSTR3B":
+			case "R3B":
+				Gstr3b gstr3b = objectMapper.treeToValue(jsonNode, Gstr3b.class);
+				gstr3b.setReturnFileCountPrimaryId(countId);
+				gstr3b.setReturnFileDetailPrimaryId(DetailsId);
+				gstr3bRepository.save(gstr3b);
+				break;
+
+			case "GSTR4":
+			case "R4":
+				Gstr4 gstr4 = objectMapper.treeToValue(jsonNode, Gstr4.class);
+				gstr4.setReturnFileCountPrimaryId(countId);
+				gstr4.setReturnFileDetailPrimaryId(DetailsId);
+				gstr4Repository.save(gstr4);
+				break;
+
+			case "GSTR5":
+			case "R5":
+				Gstr5 gstr5 = objectMapper.treeToValue(jsonNode, Gstr5.class);
+				gstr5.setReturnFileCountPrimaryId(countId);
+				gstr5.setReturnFileDetailPrimaryId(DetailsId);
+				gstr5Repository.save(gstr5);
+				break;
+
+//			case "GSTR6":
+//			case "R6":
+//				Gstr6 gstr6 = objectMapper.treeToValue(jsonNode, Gstr6.class);
+//				gstr6Repository.save(gstr6);
+//				break;
+
+			case "GSTR7":
+			case "R7":
+				Gstr7 gstr7 = objectMapper.treeToValue(jsonNode, Gstr7.class);
+				gstr7.setReturnFileCountPrimaryId(countId);
+				gstr7.setReturnFileDetailPrimaryId(DetailsId);
+				gstr7Repository.save(gstr7);
+				break;
+
+			case "GSTR8":
+			case "R8":
+				Gstr8 gstr8 = objectMapper.treeToValue(jsonNode, Gstr8.class);
+				gstr8.setReturnFileCountPrimaryId(countId);
+				gstr8.setReturnFileDetailPrimaryId(DetailsId);
+				gstr8Repository.save(gstr8);
+				break;
+
+			case "GSTR9":
+			case "R9":
+				Gstr9 gstr9 = objectMapper.treeToValue(jsonNode, Gstr9.class);
+				gstr9.setReturnFileCountPrimaryId(countId);
+				gstr9.setReturnFileDetailPrimaryId(DetailsId);
+				gstr9Repository.save(gstr9);
+				break;
+
+			case "GSTR10":
+			case "R10":
+				Gstr10 gstr10 = objectMapper.treeToValue(jsonNode, Gstr10.class);
+				gstr10.setReturnFileCountPrimaryId(countId);
+				gstr10.setReturnFileDetailPrimaryId(DetailsId);
+				gstr10Repository.save(gstr10);
+				break;
+
+			case "GSTR11":
+			case "R11":
+				Gstr11 gstr11 = objectMapper.treeToValue(jsonNode, Gstr11.class);
+				gstr11.setReturnFileCountPrimaryId(countId);
+				gstr11.setReturnFileDetailPrimaryId(DetailsId);
+				gstr11Repository.save(gstr11);
+				break;
+
+			case "CM8":
+				Cmp8 cmp8 = objectMapper.treeToValue(jsonNode, Cmp8.class);
+				cmp8.setReturnFileCountPrimaryId(countId);
+				cmp8.setReturnFileDetailPrimaryId(DetailsId);
+				cmp8Repository.save(cmp8);
+				break;
+
+			case "PAYMENT":
+				Payment payment = objectMapper.treeToValue(jsonNode, Payment.class);
+				payment.setReturnFileCountPrimaryId(countId);
+				payment.setReturnFileDetailPrimaryId(DetailsId);
+				paymentRepository.save(payment);
+				break;
+
+			case "GSTR9A":
+			case "R9A":
+				Gstr9A gstr9a = objectMapper.treeToValue(jsonNode, Gstr9A.class);
+				gstr9a.setReturnFileCountPrimaryId(countId);
+				gstr9a.setReturnFileDetailPrimaryId(DetailsId);
+				gstr9aRepository.save(gstr9a);
+				break;
+
+			case "GSTR9C":
+			case "R9C":
+				Gstr9c gstr9c = objectMapper.treeToValue(jsonNode, Gstr9c.class);
+				gstr9c.setReturnFileCountPrimaryId(countId);
+				gstr9c.setReturnFileDetailPrimaryId(DetailsId);
+				gstr9cRepository.save(gstr9c);
+				break;
+
+			case "GSTR98A":
+			case "R98A":
+				Gstr98a gstr98a = objectMapper.treeToValue(jsonNode, Gstr98a.class);
+				gstr98a.setReturnFileCountPrimaryId(countId);
+				gstr98a.setReturnFileDetailPrimaryId(DetailsId);
+				gstr98aRepository.save(gstr98a);
+				break;
+
+			case "ITC02":
+				Itc2 itc2 = objectMapper.treeToValue(jsonNode, Itc2.class);
+				itc2.setReturnFileCountPrimaryId(countId);
+				itc2.setReturnFileDetailPrimaryId(DetailsId);
+				itc2Repository.save(itc2);
+				break;
+
+			default:
+
+				log.error("Unsupported application={}, recordId={}", application, recordId);
+
+				throw new IllegalArgumentException("Unsupported application: " + application);
+			}
+
+			record.setIsProcessed(true);
+
+			log.info("Processing completed successfully for application={}, recordId={}", application, recordId);
+
+		} catch (Exception ex) {
+
+			log.error("Error while processing application={}, recordId={}, error={}", application, recordId,
+					ex.getMessage(), ex);
+
+			try {
+				record.setIsProcessed(false);
+			} catch (Exception e) {
+
+				log.error("Unable to update processing status for recordId={}", recordId, e);
+			}
+		}
+	}
+
 	private boolean processFileByApplication(String application, String gzFilePath, ObjectMapper mapper)
 			throws Exception {
 
@@ -815,7 +1201,7 @@ public class FileDownloadHelperCommon extends AbstractFileDownloadHelperCommon {
 							isSaved = true;
 							break;
 
-						case "CM908":
+						case "CMP08":
 						case "CM8":
 							cmp8Repository.save(mapper.readValue(line, Cmp8.class));
 							isSaved = true;
@@ -867,7 +1253,7 @@ public class FileDownloadHelperCommon extends AbstractFileDownloadHelperCommon {
 		}
 
 		switch (application.toUpperCase()) {
-		
+
 		case "R1":
 			return "R1_Deloitte";
 
@@ -978,206 +1364,74 @@ public class FileDownloadHelperCommon extends AbstractFileDownloadHelperCommon {
 		}
 	}
 
-//	public boolean isDataAlreadyPresent(String application, Date date) {
-//
-//		switch (application.toUpperCase()) {
-//
-//		case "GSTR1":
-//			return r1Repo.existsByDt(date);
-//
-//		case "GSTR1A":
-//			return r1aRepo.existsByDt(date);
-//
-//		case "GSTR2B":
-//			return r2bRepo.existsByDt(date);
-//
-//		case "GSTR3B":
-//			return r3bRepo.existsByDt(date);
-//
-//		case "GSTR4":
-//			return r4Repo.existsByDt(date);
-//
-//		case "GSTR5":
-//			return r5Repo.existsByDt(date);
-//
-//		case "GSTR6":
-//			return r6Repo.existsByDt(date);
-//
-//		case "GSTR7":
-//			return r7Repo.existsByDt(date);
-//
-//		case "GSTR8":
-//			return r8Repo.existsByDt(date);
-//
-//		case "GSTR9":
-//			return r9Repo.existsByDt(date);
-//
-//		case "GSTR10":
-//			return r10Repo.existsByDt(date);
-//
-//		case "GSTR11":
-//			return r11Repo.existsByDt(date);
-//
-//		case "GSTR9A":
-//			return r9aRepo.existsByDt(date);
-//
-//		case "GSTR98A":
-//			return r98aRepo.existsByDt(date);
-//
-//		case "GSTR9C":
-//			return r9cRepo.existsByDt(date);
-//
-//		case "CMP08":
-//			return cmp08Repo.existsByDt(date);
-//			
-//		case "R1":
-//			return r1Repo.existsByDt(date);
-//
-//		case "R1A":
-//			return r1aRepo.existsByDt(date);
-//
-//		case "R2B":
-//			return r2bRepo.existsByDt(date);
-//
-//		case "R3B":
-//			return r3bRepo.existsByDt(date);
-//
-//		case "R4":
-//			return r4Repo.existsByDt(date);
-//
-//		case "R5":
-//			return r5Repo.existsByDt(date);
-//
-//		case "R6":
-//			return r6Repo.existsByDt(date);
-//
-//		case "R7":
-//			return r7Repo.existsByDt(date);
-//
-//		case "R8":
-//			return r8Repo.existsByDt(date);
-//
-//		case "R9":
-//			return r9Repo.existsByDt(date);
-//
-//		case "R10":
-//			return r10Repo.existsByDt(date);
-//
-//		case "R11":
-//			return r11Repo.existsByDt(date);
-//
-//		case "R9A":
-//			return r9aRepo.existsByDt(date);
-//
-//		case "R98A":
-//			return r98aRepo.existsByDt(date);
-//
-//		case "R9C":
-//			return r9cRepo.existsByDt(date);
-//
-//		case "CM8":
-//			return cmp08Repo.existsByDt(date);
-//
-//		case "payment":
-//			return paymentRepo.existsByDt(date);
-//
-//		case "itc02":
-//			return itc02Repo.existsByDt(date);
-//
-//		default:
-//			return itc02Repo.existsByDt(date);
-//		}
-//	}
-///////////////////////////////////////////////
-	@Transactional
-	public long saveDataFromJsonToDb(String application) {
-
-		long start = System.currentTimeMillis();
-		log.info("▶ START DB JSON → ENTITY ingestion | app={}", application);
-
-		int totalProcessed = 0;
-
-		while (true) {
-
-			List<? extends BaseJsonEntity> list = fetchTop30(application);
-
-			if (list == null || list.isEmpty()) {
-				log.info("✅ No more records found for app={}", application);
-				break;
-			}
-
-			log.info("📦 Processing batch size={}", list.size());
-
-			for (BaseJsonEntity record : list) {
-				try {
-					processJsonRecord(application, record);
-					// record.setIsProcess(true);
-					totalProcessed++;
-
-				} catch (Exception e) {
-					// log.error("❌ Failed for record id={}", record.getId(), e);
-				}
-			}
-
-			// saveBatch(application, list);
-
-			log.info("✔ Batch processed | totalProcessed={}", totalProcessed);
-		}
-
-		long time = System.currentTimeMillis() - start;
-		log.info("🏁 END DB JSON ingestion | time={} ms", time);
-
-		return totalProcessed;
-	}
-
 	private List<? extends BaseJsonEntity> fetchTop30(String application) {
 
-		switch (application.toLowerCase()) {
+		switch (application.toUpperCase()) {
 
-		case "gstr1":
-			// return r1Repo.findByTop30IsProcessIsFalseOrderByIdDesc();
+		case "GSTR1":
+		case "R1":
+			return r1Repo.findTop30ByIsProcessedFalseOrIsProcessedIsNullOrderByIdDesc();
 
-		case "gstr11":
-			// return r11Repo.findByTop30IsProcessIsFalseOrderByIdDesc();
+		case "GSTR2B":
+		case "R2B":
+			return r2bRepo.findTop30ByIsProcessedFalseOrIsProcessedIsNullOrderByIdDesc();
 
-		case "gstr3b":
-			// return r3bRepo.findByTop30IsProcessIsFalseOrderByIdDesc();
+		case "GSTR3B":
+		case "R3B":
+			return r3bRepo.findTop30ByIsProcessedFalseOrIsProcessedIsNullOrderByIdDesc();
 
-			// add others...
+		case "GSTR4":
+		case "R4":
+			return r4Repo.findTop30ByIsProcessedFalseOrIsProcessedIsNullOrderByIdDesc();
 
-		default:
-			throw new IllegalArgumentException("Unsupported application: " + application);
-		}
-	}
+		case "GSTR5":
+		case "R5":
+			return r5Repo.findTop30ByIsProcessedFalseOrIsProcessedIsNullOrderByIdDesc();
 
-	private void processJsonRecord(String application, BaseJsonEntity record) throws Exception {
+		case "GSTR6":
+		case "R6":
+			return r6Repo.findTop30ByIsProcessedFalseOrIsProcessedIsNullOrderByIdDesc();
 
-		ObjectMapper mapper = new ObjectMapper();
+		case "GSTR7":
+		case "R7":
+			return r7Repo.findTop30ByIsProcessedFalseOrIsProcessedIsNullOrderByIdDesc();
 
-		JsonNode jsonNode = null;
-//
-//	    if (jsonNode == null || jsonNode.isEmpty()) {
-//	       // log.warn("⚠ Empty JSON for id={}", record.getId());
-//	        return;
-//	    }
+		case "GSTR8":
+		case "R8":
+			return r8Repo.findTop30ByIsProcessedFalseOrIsProcessedIsNullOrderByIdDesc();
 
-		switch (application.toLowerCase()) {
+		case "GSTR9":
+		case "R9":
+			return r9Repo.findTop30ByIsProcessedFalseOrIsProcessedIsNullOrderByIdDesc();
 
-		case "gstr1":
-			Gstr1 gstr1 = mapper.treeToValue(jsonNode, Gstr1.class);
-			// gstr1.setReturnFileDetailPrimaryId(record.getReturnFileDetailPrimaryId());
-			gstr1Repository.save(gstr1);
-			break;
+		case "GSTR10":
+		case "R10":
+			return r10Repo.findTop10000ByIsProcessedFalseOrIsProcessedIsNullOrderByIdDesc();
 
-		case "gstr11":
-			Gstr11 gstr11 = mapper.treeToValue(jsonNode, Gstr11.class);
-			gstr11Repository.save(gstr11);
-			break;
+		case "GSTR11":
+		case "R11":
+			return r11Repo.findTop10000ByIsProcessedFalseOrIsProcessedIsNullOrderByIdDesc();
 
-		case "gstr3b":
-			Gstr3b gstr3b = mapper.treeToValue(jsonNode, Gstr3b.class);
-			gstr3bRepository.save(gstr3b);
-			break;
+		case "CMP08":
+		case "CM8":
+			return cmp08Repo.findTop2000ByIsProcessedFalseOrIsProcessedIsNullOrderByIdDesc();
+
+		case "PAYMENT":
+			return paymentRepo.findTop30ByIsProcessedFalseOrIsProcessedIsNullOrderByIdDesc();
+
+		case "GSTR9A":
+		case "R9A":
+			return r9aRepo.findTop30ByIsProcessedFalseOrIsProcessedIsNullOrderByIdDesc();
+
+		case "GSTR9C":
+		case "R9C":
+			return r9cRepo.findTop30ByIsProcessedFalseOrIsProcessedIsNullOrderByIdDesc();
+
+		case "GSTR1A":
+		case "R1A":
+			return r1aRepo.findTop30ByIsProcessedFalseOrIsProcessedIsNullOrderByIdDesc();
+
+		// add others...
 
 		default:
 			throw new IllegalArgumentException("Unsupported application: " + application);

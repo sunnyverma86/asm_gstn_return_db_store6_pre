@@ -24,8 +24,8 @@ import com.deloitte.common.entity.APIDetails;
 import com.deloitte.common.entity.GSTUserSession;
 import com.deloitte.common.entity.MasterData;
 import com.deloitte.returns.entity.CommonCrnDate;
-import com.deloitte.returns.entity.registration.CrnDetailCommon;
-import com.deloitte.returns.entity.registration.ReturnCountCrnJson;
+import com.deloitte.returns.entity.filecounter.CrnDetailCommon;
+import com.deloitte.returns.entity.filecounter.ReturnCountCrnJson;
 import com.deloitte.service.abs.AbstractCommonCrnServiceImpl;
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -473,7 +473,7 @@ public class CommonCrnServiceImpl extends AbstractCommonCrnServiceImpl {
 
 								detail.setIsSuccess(null);
 
-								detail.setUrl(apiPath);
+								//detail.setUrl(apiPath);
 
 								// IMPORTANT FOR JSONB COLUMN
 								detail.setMsg(objectMapper.valueToTree(Map.of("message", "SUCCESS")));

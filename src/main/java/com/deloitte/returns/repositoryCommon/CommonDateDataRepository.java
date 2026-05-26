@@ -2,7 +2,7 @@ package com.deloitte.returns.repositoryCommon;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.deloitte.common.entity.CommonDateData;
+import com.deloitte.returns.entity.filecounter.CommonDateData;
 
 public interface CommonDateDataRepository extends JpaRepository<CommonDateData, Long> {
 

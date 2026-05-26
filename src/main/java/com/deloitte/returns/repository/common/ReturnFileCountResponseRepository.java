@@ -7,7 +7,7 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.deloitte.returns.entity.ReturnFileCountResponse;
+import com.deloitte.returns.entity.filecounter.ReturnFileCountResponse;
 
 @Repository
 public interface ReturnFileCountResponseRepository extends JpaRepository<ReturnFileCountResponse, Long> {

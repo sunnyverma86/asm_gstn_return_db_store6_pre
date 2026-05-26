@@ -20,7 +20,7 @@ import com.deloitte.common.constant.Constants;
 import com.deloitte.common.entity.APIDetails;
 import com.deloitte.common.entity.GSTUserSession;
 import com.deloitte.common.entity.MasterData;
-import com.deloitte.returns.entity.registration.CrnDetailCommon;
+import com.deloitte.returns.entity.filecounter.CrnDetailCommon;
 import com.deloitte.returns.repository.ReturnCountCrnJsonRepository;
 import com.deloitte.returns.repository.common.CommonCrnDateRepository;
 import com.deloitte.returns.repository.common.CommonFileDetailsAdjudicationRepository;
@@ -123,9 +123,10 @@ public class CommonCrnServicePreImpl {
 		case "ADJNF":
 		case "ADJGP":
 		case "ADJDT":
-		case "APPEL":
 			return Constants.GET_RETURN_FILE_DETAIL_Adjudication_Determination_Tax_DATA;
 
+		case "APPEL":
+			return Constants.GET_RETURN_FILE_DETAIL_Adjudication_APPEL;
 		default:
 			return null;
 		}
@@ -148,10 +149,12 @@ public class CommonCrnServicePreImpl {
 		case "ADJUR":
 		case "ADJVP":
 		case "ADJAE":
-		case "APPEL":
 		case "ADJRC":
 		case "ADJRO": // added
 			return getParamsForGetReturnFileDetails(statecd, crn);
+
+		case "APPEL":
+			return getParamsForGetReturnFileDetailsAPPEL(statecd, crn);
 
 // Refund
 		case "RFUND": // corrected from Rfund
@@ -188,10 +191,18 @@ public class CommonCrnServicePreImpl {
 	}
 
 	// ADJDT,ADJGP,ADJND,ADJNF,ADJPA,ADJAT,ADJRA,ADJSA,ADJSR,ADJUR,ADJVP,ADJAE,
-	// //APPEL
+
 	private Map<String, String> getParamsForGetReturnFileDetails(String statecd, String crn) {
 		Map<String, String> params = new HashMap<String, String>();
 		params.put("action", "GETCASEDATAASSMT");
+		params.put("state_cd", statecd);
+		params.put("crn", crn);
+		return params;
+	}
+
+	private Map<String, String> getParamsForGetReturnFileDetailsAPPEL(String statecd, String crn) {
+		Map<String, String> params = new HashMap<String, String>();
+		params.put("action", "GETDATA");
 		params.put("state_cd", statecd);
 		params.put("crn", crn);
 		return params;
@@ -311,8 +322,11 @@ public class CommonCrnServicePreImpl {
 				Pageable pageable = PageRequest.of(pageNo, PAGE_SIZE);
 
 				// Page<CrnDetailCommon> page =
-				// crnDetailCommonRepository.findPendingRecords(pageable); //write the date
-				Page<CrnDetailCommon> page = crnDetailCommonRepository.findPendingRecordsAfterId(77684L, pageable);
+				// crnDetailCommonRepository.findPendingRecords(pageable); //write the
+				// date476294
+				Page<CrnDetailCommon> page = crnDetailCommonRepository.findPendingRecordsAfterId(77732L, pageable);
+				// Page<CrnDetailCommon> page =
+				// crnDetailCommonRepository.findPendingRecordsAfterId(77820L, pageable);
 
 				// =====================================================
 				// PAGE LOGGING
@@ -362,7 +376,8 @@ public class CommonCrnServicePreImpl {
 					String crn = record.getCrn();
 
 					String caseType = record.getOriginalCaseTyp();
-
+					
+					String apiPath=null;
 					try {
 
 						log.info("--------------------------------------------------");
@@ -374,15 +389,15 @@ public class CommonCrnServicePreImpl {
 						// =================================================
 						// STEP 1 : GET API CONSTANT
 						// =================================================
-
+						
 						String apiConstant = getApiConstantByCaseType(caseType);
-
+				
 						if (apiConstant == null) {
 
 							log.warn("⚠️ API Constant not developed | CRN={} | caseType={}", crn, caseType);
 
 							record.setIsSuccess(false);
-
+							record.setIsFuture(true);
 							record.setIsProcessed(false);
 
 							// =========================================
@@ -455,7 +470,7 @@ public class CommonCrnServicePreImpl {
 						// STEP 4 : BUILD URL
 						// =================================================
 
-						String apiPath = authenticationHelper
+						apiPath = authenticationHelper
 								.getUriWithParam(authenticationHelper.getFullPath(masterData, apiDetails), params);
 
 						log.info("📡 API PATH={}", apiPath);
@@ -467,8 +482,15 @@ public class CommonCrnServicePreImpl {
 						GSTCommonResponseBean response = restClient.get(apiPath, GSTCommonResponseBean.class, headers);
 
 						JsonNode responseJson;
+						//check
+//						if (caseType.equalsIgnoreCase("APPEL") && response != null
+//								&& "1".equals(response.getStatus_cd())) {
+//							System.out.println("APPEL");
+//						}
 
-						// =================================================
+						
+
+						// =================================================s
 						// SUCCESS RESPONSE
 						// =================================================
 
@@ -511,6 +533,9 @@ public class CommonCrnServicePreImpl {
 							record.setIsSuccess(false);
 
 							record.setIsProcessed(false);
+							if(record.getOriginalCaseTyp().equalsIgnoreCase("RCMOR")) {
+								record.setIsFuture(true);
+							}
 
 							record.setUrl(apiPath);
 
@@ -534,11 +559,11 @@ public class CommonCrnServicePreImpl {
 
 					} catch (Exception e) {
 
-						log.error("❌ CRN Processing Failed | CRN={} | caseType={} | error={}", crn, caseType,
-								e.getMessage(), e);
+						log.error("❌ CRN Processing Failed | CRN={} | caseType={} | error={}", crn, caseType);
 
 						record.setIsSuccess(false);
-
+						record.setIsFuture(true);
+						record.setUrl(apiPath);
 						record.setIsProcessed(false);
 
 						// =========================================

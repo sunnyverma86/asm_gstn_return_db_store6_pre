@@ -24,7 +24,7 @@ import lombok.ToString;
 @NoArgsConstructor
 @ToString
 @Entity
-@Table(name = "return_count_crn", schema = "crn_details")
+@Table(name = "return_count_crn", schema = "common")
 public class ReturnCountCrn {
 //	public String statusCd;
 //	public String data;

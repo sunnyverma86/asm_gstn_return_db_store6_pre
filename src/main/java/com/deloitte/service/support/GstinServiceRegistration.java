@@ -39,16 +39,16 @@ import com.deloitte.common.bean.GSTCommonResponseBean;
 import com.deloitte.common.constant.Constants;
 import com.deloitte.common.entity.APIDetails;
 import com.deloitte.common.entity.GSTUserSession;
-import com.deloitte.common.entity.GstinEntity;
 import com.deloitte.common.entity.MasterData;
-import com.deloitte.returns.entity.RentActivePpbzdtls;
-import com.deloitte.returns.entity.DownloadDocument.RegDocuments;
+import com.deloitte.returns.entity.GstinEntity;
 import com.deloitte.returns.entity.regis.RegistrationDataJsonFile;
 import com.deloitte.returns.entity.regis.RegistrationDataJsonFileView;
 import com.deloitte.returns.entity.regis.RegistrationNormalTaxPayer;
 import com.deloitte.returns.entity.registds.RegistrationTdsTcs;
 import com.deloitte.returns.entity.registration.AlertDetailsRegistration;
 import com.deloitte.returns.entity.registration.AlertRegistration;
+import com.deloitte.returns.entity.registration.RegDocuments;
+import com.deloitte.returns.entity.registration.RentActivePpbzdtls;
 import com.deloitte.service.abs.CommonServiceImplAbs;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -95,7 +95,7 @@ public class GstinServiceRegistration extends CommonServiceImplAbs {
 		} else {
 
 			// FIRST TIME RUN
-			currentStartDateTime = LocalDateTime.of(2026, 4, 1, 0, 0, 0);
+			currentStartDateTime = LocalDateTime.of(2026, 5, 15, 0, 0, 0);
 
 			log.info("📌 No previous data found. Starting from default date: {}", currentStartDateTime);
 		}

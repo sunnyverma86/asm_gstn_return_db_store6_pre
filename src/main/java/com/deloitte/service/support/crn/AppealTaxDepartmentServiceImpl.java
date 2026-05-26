@@ -5,7 +5,7 @@ import org.springframework.stereotype.Service;
 import com.deloitte.common.constant.Constants;
 import com.deloitte.common.entity.GSTUserSession;
 import com.deloitte.common.entity.MasterData;
-import com.deloitte.returns.entity.registration.ReturnCountCrnJson;
+import com.deloitte.returns.entity.filecounter.ReturnCountCrnJson;
 import com.deloitte.returns.repository.common.CrnCaseHandler;
 import com.deloitte.service.abs.AbstractCommonCrnServiceImpl;
 

@@ -1,4 +1,5 @@
 package com.deloitte.returns.entity.Payment;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -26,7 +27,15 @@ import lombok.NoArgsConstructor;
 @Table(name = "payment", schema = "payment")
 
 public class Payment {
-	
+
+	//
+	@Column(name = "return_file_count_primary_id")
+	private Long returnFileCountPrimaryId;
+
+	@Column(name = "return_file_detail_primary_id")
+	private Long returnFileDetailPrimaryId;
+//
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
@@ -47,7 +56,7 @@ public class Payment {
 	protected void onUpdate() {
 		updatedDateTime = LocalDateTime.now();
 	}
-	
+
 	@JsonProperty("state_cd")
 	private String stateCD;
 

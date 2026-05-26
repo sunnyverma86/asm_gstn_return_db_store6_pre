@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.deloitte.returns.entity.registration.ReturnCountCrnJson;
+import com.deloitte.returns.entity.filecounter.ReturnCountCrnJson;
 
 @Repository
 public interface ReturnCountCrnJsonRepository extends JpaRepository<ReturnCountCrnJson, Long> {

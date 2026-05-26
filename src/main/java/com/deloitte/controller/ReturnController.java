@@ -1,4 +1,4 @@
- package com.deloitte.controller;
+package com.deloitte.controller;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -53,20 +53,20 @@ public class ReturnController {
 	}
 
 	// ========================== 1️⃣ DOWNLOAD APIs ==========================
-	
+
 	@Scheduled(cron = "0 10 4 * * *")
-	@GetMapping("/scheduleCmp08")//ready
+	@GetMapping("/scheduleCmp08") // ready
 	public ResponseEntity<String> scheduleCmp08Download() {
 		return scheduleWithLogging("CM8", "scheduleCmp08Download");
 	}
 
-	@GetMapping("/scheduleItc02")//no need
+	@GetMapping("/scheduleItc02") // no need
 	public ResponseEntity<String> scheduleItc02Download() {
 		return scheduleWithLogging("ITC02", "scheduleItc02Download");
 	}
 
 	@Scheduled(cron = "0 30 4 * * *")
-	@GetMapping("/schedulePayment")//ready
+	@GetMapping("/schedulePayment") // ready
 	public ResponseEntity<String> schedulePaymentDownload() {
 		return scheduleWithLogging("payment", "schedulePaymentDownload");
 	}
@@ -77,128 +77,132 @@ public class ReturnController {
 	}
 
 	@Scheduled(cron = "0 10 5 * * *")
-	@GetMapping("/scheduleGstr1")//ready
+	@GetMapping("/scheduleGstr1") // ready
 	public ResponseEntity<String> scheduleGstr1Download() {
 		return scheduleWithLogging("R1", "scheduleGstr1Download");
 	}
 
-	//@Scheduled(cron = "0 50 5 * * *")
-	@GetMapping("/scheduleGstr1a")//no need
+	@Scheduled(cron = "0 50 5 * * *")
+	@GetMapping("/scheduleGstr1a") // no need
 	public ResponseEntity<String> scheduleGstr1aDownload() {
 		return scheduleWithLogging("R1A", "scheduleGstr1aDownload");
 	}
 
 	@Scheduled(cron = "0 10 6 * * *")
-	@GetMapping("/scheduleGstr2b")//ready
+	@GetMapping("/scheduleGstr2b") // ready
 	public ResponseEntity<String> scheduleGstr2bDownload() {
 		return scheduleWithLogging("R2B", "scheduleGstr2bDownload");
 	}
 
 	@Scheduled(cron = "0 10 7 * * *")
-	@GetMapping("/scheduleGstr3b")//ready
+	@GetMapping("/scheduleGstr3b") // ready
 	public ResponseEntity<String> scheduleGstr3bDownload() {
 		return scheduleWithLogging("R3B", "scheduleGstr3bDownload");
 	}
 
 	@Scheduled(cron = "0 45 7 * * *")
-	@GetMapping("/scheduleGstr4")//ready
+	@GetMapping("/scheduleGstr4") // ready
 	public ResponseEntity<String> scheduleGstr4Download() {
 		return scheduleWithLogging("R4", "scheduleGstr4Download");
 	}
 
-	@GetMapping("/scheduleGstr5")//ready not working
+	@GetMapping("/scheduleGstr5") // ready not working
 	public ResponseEntity<String> scheduleGstr5Download() {
 		return scheduleWithLogging("R5", "scheduleGstr5Download");
 	}
 
 	@Scheduled(cron = "0 55 7 * * *")
-	@GetMapping("/scheduleGstr6")//ready
+	@GetMapping("/scheduleGstr6") // ready
 	public ResponseEntity<String> scheduleGstr6Download() {
 		return scheduleWithLogging("R6", "scheduleGstr6Download"); // Completed
 	}
 
 	@Scheduled(cron = "0 10 8 * * *")
-	@GetMapping("/scheduleGstr7")//ready
+	@GetMapping("/scheduleGstr7") // ready--
 	public ResponseEntity<String> scheduleGstr7Download() {
 		return scheduleWithLogging("R7", "scheduleGstr7Download");
 	}
 
 	@Scheduled(cron = "0 20 8 * * *")
-	@GetMapping("/scheduleGstr8")//ready
+	@GetMapping("/scheduleGstr8") // ready
 	public ResponseEntity<String> scheduleGstr8Download() {
 		return scheduleWithLogging("R8", "scheduleGstr8Download");// Completed
 	}
 
 	@Scheduled(cron = "0 30 8 * * *")
-	@GetMapping("/scheduleGstr9")//ready
+	@GetMapping("/scheduleGstr9") // ready--
 	public ResponseEntity<String> scheduleGstr9Download() {
 		return scheduleWithLogging("R9", "scheduleGstr9Download");
 	}
 
 	@Scheduled(cron = "0 40 8 * * *")
-	@GetMapping("/scheduleGstr9a")//ready
+	@GetMapping("/scheduleGstr9a") // ready
 	public ResponseEntity<String> scheduleGstr9aDownload() {
 		return scheduleWithLogging("R9A", "scheduleGstr9aDownload");
 	}
 
-	@GetMapping("/scheduleGstr98a")//ready-- no data
+	@GetMapping("/scheduleGstr98a") // ready-- no data
 	public ResponseEntity<String> scheduleGstr98aDownload() {
 		return scheduleWithLogging("R98A", "scheduleGstr98aDownload");
 	}
 
 	@Scheduled(cron = "0 20 9 * * *")
-	@GetMapping("/scheduleGstr9c")//ready--
+	@GetMapping("/scheduleGstr9c") // ready---
 	public ResponseEntity<String> scheduleGstr9cDownload() {
 		return scheduleWithLogging("R9C", "scheduleGstr9cDownload");
 	}
 
 	@Scheduled(cron = "0 10 9 * * *")
-	@GetMapping("/scheduleGstr10")//ready
+	@GetMapping("/scheduleGstr10") // ready---
 	public ResponseEntity<String> scheduleGstr10Download() {
 		return scheduleWithLogging("R10", "scheduleGstr10Download");
 	}
 
 	@Scheduled(cron = "0 30 9 * * *")
-	@GetMapping("/scheduleGstr11")//ready
+	@GetMapping("/scheduleGstr11") // ready---
 	public ResponseEntity<String> scheduleGstr11Download() {
 		return scheduleWithLogging("R11", "scheduleGstr11Download");
 	}
 
-	@GetMapping("/scheduleGstr3")//--notReady
+	@GetMapping("/scheduleGstr3") // --notReady
 	public ResponseEntity<String> scheduleGstr3Download() {
 		return scheduleWithLogging("gstr3", "scheduleGstr3Download");
 	}
 
-	@GetMapping("/scheduleGstr12")//--notReady
+	@GetMapping("/scheduleGstr12") // --notReady
 	public ResponseEntity<String> scheduleGstr12Download() {
 		return scheduleWithLogging("R12", "scheduleGstr12Download");
 	}
 
-	@GetMapping("/scheduleGstr13")//--notReady
+	@GetMapping("/scheduleGstr13") // --notReady
 	public ResponseEntity<String> scheduleGstr13Download() {
 		return scheduleWithLogging("R13", "scheduleGstr13Download");
 	}
 
-	@GetMapping("/scheduleGstr14")//--notReady
+	@GetMapping("/scheduleGstr14") // --notReady
 	public ResponseEntity<String> scheduleGstr14Download() {
 		return scheduleWithLogging("R14", "scheduleGstr14Download");
 	}
 
-	@GetMapping("/schedulePmt")//--notReady
+	@GetMapping("/schedulePmt") // --notReady
 	public ResponseEntity<String> schedulePmtDownload() {
 		return scheduleWithLogging("PMT", "schedulePmtDownload");
 	}
 
-	@GetMapping("/scheduleGstr1r3b")//--notReady
+	@GetMapping("/scheduleGstr1r3b") // --notReady
 	public ResponseEntity<String> scheduleGstr1r3bDownload() {
 		return scheduleWithLogging("gstr1r3b", "scheduleGstr1r3bDownload");
 	}
 
-	@GetMapping("/saveDataIntoToDb") // working-checked
+	@GetMapping("/saveDataIntoToDb")
 	public ResponseEntity<String> saveDataFromJson(@RequestParam String application) {
 
-		return executeWithLogging("saveDataFromJson", application,
-				() -> String.valueOf(commonControllerGstrUtilityImpl.saveDataFromJsonToDb(application)));
+		return executeWithLogging("SAVE_DATA_FROM_JSON_TO_DB", application, () -> {
+
+			long totalRecords = commonControllerGstrUtilityImpl.saveDataFromJsonToDb(application);
+
+			return "Successfully Processed Records : " + totalRecords;
+		});
 	}
 
 	private ResponseEntity<String> executeWithLogging(String apiName, String application, Supplier<String> supplier) {
@@ -237,7 +241,7 @@ public class ReturnController {
 
 		return ResponseEntity.ok(response);
 	}
-	
+
 	@GetMapping("/processFewDocuments") // need to change the table
 	public ResponseEntity<String> processFewDocuments() {
 
@@ -247,6 +251,5 @@ public class ReturnController {
 
 		return ResponseEntity.ok(response);
 	}
-
 
 }

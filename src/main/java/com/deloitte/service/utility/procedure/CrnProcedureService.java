@@ -13,7 +13,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
-import com.deloitte.returns.entity.registration.ReturnCountCrnJson;
+import com.deloitte.returns.entity.filecounter.ReturnCountCrnJson;
 import com.deloitte.returns.repository.ReturnCountCrnJsonRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 

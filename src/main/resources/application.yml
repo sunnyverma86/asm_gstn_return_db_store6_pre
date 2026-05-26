@@ -1,25 +1,25 @@
 #spring:
-#  #sql.init.mode: always
 #  datasource:
 #    url: jdbc:postgresql://localhost:5432/TestingReturnPre?useSSL=false
-#    driverClassName: org.postgresql.Driver
+#    driver-class-name: org.postgresql.Driver
 #    username: postgres
 #    password: postgres
-#    pool-size: 30
 #
+#    hikari:
+#      maximum-pool-size: 30
 #
-#
-##JPA Settings
 #  jpa:
 #    hibernate:
-#      ddl-auto: update
-#      show-sql: true
+#      ddl-auto: none
+#
+#    show-sql: false
+#
 #    properties:
 #      hibernate:
 #        format_sql: true
 #        default_schema: public
+#
 #    defer-datasource-initialization: true
-
 
 #redis
 #  redis:
@@ -43,7 +43,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none
-      show-sql: true
+      show-sql: false
     properties:
       hibernate:
         format_sql: true

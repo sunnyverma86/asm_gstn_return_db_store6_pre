@@ -22,7 +22,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "ledger_common_details_cmn", schema = "gst_api_registration")
+@Table(name = "ledger_common_details_cmn", schema = "asm")
 public class LedgerCommonDetails {
 
 	@Id
@@ -60,6 +60,9 @@ public class LedgerCommonDetails {
 
 	@Column(name = "msg")
 	private String msg;
+	
+	@Column(name = "status")
+	private String status;
 
 	@Column(name = "create_date_time", updatable = false)
 	private Instant createDateTime;

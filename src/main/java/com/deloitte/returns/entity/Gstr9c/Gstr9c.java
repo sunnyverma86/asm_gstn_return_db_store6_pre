@@ -26,6 +26,14 @@ import lombok.NoArgsConstructor;
 @Table(name = "gstr9c", schema = "gstr9c")
 public class Gstr9c {
 
+	//
+	@Column(name = "return_file_count_primary_id")
+	private Long returnFileCountPrimaryId;
+
+	@Column(name = "return_file_detail_primary_id")
+	private Long returnFileDetailPrimaryId;
+//
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;

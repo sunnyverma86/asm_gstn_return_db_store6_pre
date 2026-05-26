@@ -6,7 +6,7 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.deloitte.common.entity.DateCountData;
+import com.deloitte.returns.entity.filecounter.DateCountData;
 
 @Repository
 public interface DateCountDataRepository extends JpaRepository<DateCountData, Long> {

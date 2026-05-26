@@ -5,7 +5,7 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.deloitte.common.entity.DateReturnGzFilePath;
+import com.deloitte.returns.entity.DateReturnGzFilePath;
 
 @Repository
 public interface DateReturnGzFilePathRepository extends JpaRepository<DateReturnGzFilePath, Long> {
