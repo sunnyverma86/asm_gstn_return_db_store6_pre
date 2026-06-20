@@ -1,7 +1,6 @@
 package com.deloitte.returns.repository;
 
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -52,6 +51,9 @@ public interface ReturnCountCrnJsonRepository extends JpaRepository<ReturnCountC
 
 	ReturnCountCrnJson findTopByOrderByEndDtDesc();
 
-	
+	@Modifying
+	@Transactional
+	@Query(value = "DELETE FROM filecounter.crn_common WHERE startdt IS NULL", nativeQuery = true)
+	int deleteRecordsWhereStartDtIsNull();
 
 }

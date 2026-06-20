@@ -34,26 +34,30 @@ public interface CrnDetailCommonRepository extends JpaRepository<CrnDetailCommon
 			AND (c.isSuccess IS NULL OR c.isSuccess = false)
 			AND (c.isFuture IS NULL OR c.isFuture = false)
 			AND (c.isProcessed IS NULL OR c.isProcessed = false)
+			AND c.counterAttempt < 6
 			ORDER BY c.id DESC
 			""")
 	Page<CrnDetailCommon> findPendingRecordsAfterId(@Param("id") Long id, Pageable pageable);
 
-	//
-	// -- c."jsondata" IS NULL
-	// -- OR
-
-//	@Query(value = """
-//			SELECT *
-//			FROM filecounter.crn_detail_common c
-//			WHERE c."crn_id" > :id
-//			AND (c."issuccess" IS NULL OR c."issuccess" = false)
-//			AND (c.is_processed IS NULL OR c.is_processed = false)
-//			AND (
-//
-//			         c."jsondata"->'error'->>'error_cd' IS DISTINCT FROM 'CM_GCAC1007'
-//			    )
-//			ORDER BY c."details_id" DESC
-//			""", nativeQuery = true)
-//	Page<CrnDetailCommon> findPendingRecordsAfterId(@Param("id") Long id, Pageable pageable);
+	Page<CrnDetailCommon> findByIdReturnCountCrnJsonGreaterThanAndIsSuccessFalseAndIsFutureFalseAndIsProcessedFalseAndCounterAttemptLessThanOrderByIdDesc(
+			Long id, int counterAttempt, Pageable pageable);
 
 }
+
+//
+// -- c."jsondata" IS NULL
+// -- OR
+
+//@Query(value = """
+//		SELECT *
+//		FROM filecounter.crn_detail_common c
+//		WHERE c."crn_id" > :id
+//		AND (c."issuccess" IS NULL OR c."issuccess" = false)
+//		AND (c.is_processed IS NULL OR c.is_processed = false)
+//		AND (
+//
+//		         c."jsondata"->'error'->>'error_cd' IS DISTINCT FROM 'CM_GCAC1007'
+//		    )
+//		ORDER BY c."details_id" DESC
+//		""", nativeQuery = true)
+//Page<CrnDetailCommon> findPendingRecordsAfterId(@Param("id") Long id, Pageable pageable);

@@ -7,7 +7,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import lombok.Data;
 
@@ -17,8 +16,7 @@ import lombok.Data;
 public class ApiMonthlyTracking {
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "api_monthly_tracking_seq")
-	@SequenceGenerator(name = "api_monthly_tracking_seq", sequenceName = "analytics.api_monthly_tracking_seq", allocationSize = 1)
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
 	private LocalDate fromDate;

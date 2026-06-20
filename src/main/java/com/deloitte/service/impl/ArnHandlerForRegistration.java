@@ -143,11 +143,11 @@ public class ArnHandlerForRegistration {
 			// isSuccess IS NULL
 			// entityId IS NOT NULL
 			// =========================================================
-			LocalDate partitionDate = LocalDate.of(2026, 4, 30);
+			LocalDate partitionDate = LocalDate.of(2026, 5, 30);
 
 			List<AlertDetailsRegistration> pendingRecords = alertDetailsRegistrationRepository
-					.findByIsSuccessIsNullAndEntityIdIsNotNullAndCreateDateTimeIsNotNullAndPartitionFyGreaterThanEqual(
-							partitionDate);
+					.findByIsSuccessIsNullAndEntityIdIsNotNullAndCreateDateTimeIsNotNullAndPartitionFyGreaterThanEqualAndCounterAttemptLessThan(
+							partitionDate, 8);
 
 			if (pendingRecords == null || pendingRecords.isEmpty()) {
 
@@ -192,7 +192,7 @@ public class ArnHandlerForRegistration {
 
 						alertObj.setIsSuccess(false);
 						alertObj.setJsonData("{\"message\":\"INVALID_ALERT_CODE\"}");
-
+						alertObj.setCounterAttempt(alertObj.getCounterAttempt()+1);
 						alertDetailsRegistrationRepository.save(alertObj);
 
 						skipped++;
@@ -228,7 +228,7 @@ public class ArnHandlerForRegistration {
 						log.error("❌ API FAILED FOR ENTITY_ID={}", entityId);
 
 						alertObj.setIsSuccess(false);
-
+						alertObj.setCounterAttempt(alertObj.getCounterAttempt()+1);
 						responseJson = objectMapper.writeValueAsString(response);
 
 						alertObj.setJsonData(responseJson);
@@ -256,7 +256,6 @@ public class ArnHandlerForRegistration {
 					alertObj.setJsonData(responseJson);
 
 					alertDetailsRegistrationRepository.save(alertObj);
-					
 
 					log.info("✅ SUCCESS FOR ENTITY_ID={}", entityId);
 
@@ -269,7 +268,7 @@ public class ArnHandlerForRegistration {
 					try {
 
 						alertObj.setIsSuccess(false);
-
+						alertObj.setCounterAttempt(alertObj.getCounterAttempt()+1);
 						String errorJson = "{\"message\":\"" + ex.getMessage().replace("\"", "'") + "\"}";
 
 						alertObj.setJsonData(errorJson);
@@ -501,11 +500,15 @@ public class ArnHandlerForRegistration {
 			// FETCH RECORDS
 			// =========================================================
 
-			LocalDate partitionDate = LocalDate.of(2026, 4, 30);
+			LocalDate partitionDate = LocalDate.of(2026, 5, 30);
 
 			List<AlertDetailsRegistration> pendingRecords = alertDetailsRegistrationRepository
 					.findByIsSuccessTrueAndIsEntitySuccessIsNullAndEntityJsonIsNullAndPartitionFyGreaterThanEqual(
 							partitionDate);
+
+			List<AlertDetailsRegistration> pendingRecords1 = alertDetailsRegistrationRepository
+					.findByIsSuccessTrueAndIsEntitySuccessIsNullAndEntityJsonIsNullAndPartitionFyGreaterThanEqualAndCounterAttemptLessThan(
+							partitionDate, 8);
 
 			if (pendingRecords == null || pendingRecords.isEmpty()) {
 

@@ -76,7 +76,7 @@ public class SupportEwayBillApiService extends AbstractSupportEwayBillApiService
 		log.info("fetchFileCountResponse");
 		String url = buildEwayUrl("FILECNT", date, category);// 2:1
 		String responseTextForCount = fetchResponse(url, authBean.getAuthtoken());
-		log.info("url:"+url);
+		log.info("url:" + url);
 		return objectMapper.readTree(responseTextForCount);
 	}
 
@@ -90,18 +90,18 @@ public class SupportEwayBillApiService extends AbstractSupportEwayBillApiService
 		if (isFailure(rootNode)) { // 3:1
 			entity.setIsSuccess(false);
 			entity.setMsg(rootNode.path("message").asText("Failed"));
-			log.info("handleFileCountResponse Failed:::"+entity.getIsSuccess());
+			log.info("handleFileCountResponse Failed:::" + entity.getIsSuccess());
 			ewayFileCountResponseRepository.save(entity);
 			return entity;
 		}
-		
+
 		entity.setIsSuccess(true);
 		entity.setMsg("Success");
-		log.info("handleFileCountResponse Success:::"+entity.getIsSuccess());
+		log.info("handleFileCountResponse Success:::" + entity.getIsSuccess());
 		String decryptedData = decryptResponse(rootNode); // 3:2
-		log.info("decryptedData :::"+decryptedData);
+		log.info("decryptedData :::" + decryptedData);
 		JsonNode decryptedNode = objectMapper.readTree(decryptedData);
-		log.info("decryptedData :::"+decryptedNode);
+		log.info("decryptedData :::" + decryptedNode);
 		entity.setTy(decryptedNode.path("ty").asText(null));
 		entity.setEodClosed(decryptedNode.path("eod_closed").asText(null));
 		entity.setNumFiles(decryptedNode.path("num_files").asInt(0));
@@ -212,21 +212,22 @@ public class SupportEwayBillApiService extends AbstractSupportEwayBillApiService
 
 	// 3:2
 	private String decryptResponse(JsonNode detailNodeValue) {
-		log.info("decryptResponse Success1:::"+detailNodeValue);
-		log.info("decryptResponse Success2:::"+ detailNodeValue.path("data").asText());
-		log.info("decryptResponse Success3:::"+  detailNodeValue.path("rek").asText());
-	    String encDataDetails = detailNodeValue.path("data").asText();
-	    String encRekDetails = detailNodeValue.path("rek").asText();
-	    String rekDetails = decryptBySymmentricKeyREK(encRekDetails);
-		log.info("decryptResponse Success4:::"+ rekDetails);
-	    
-	    String dataDetails = decryptBySymmentricKeyData(encDataDetails);
+		log.info("decryptResponse Success1:::" + detailNodeValue);
+		log.info("decryptResponse Success2:::" + detailNodeValue.path("data").asText());
+		log.info("decryptResponse Success3:::" + detailNodeValue.path("rek").asText());
+		String encDataDetails = detailNodeValue.path("data").asText();
+		String encRekDetails = detailNodeValue.path("rek").asText();
+		String rekDetails = decryptBySymmentricKeyREK(encRekDetails);
+		log.info("decryptResponse Success4:::" + rekDetails);
 
-	    return dataDetails;
+		String dataDetails = decryptBySymmentricKeyData(encDataDetails);
+
+		return dataDetails;
 	}
+
 	// 3:2:1
 	public static String decryptBySymmentricKeyREK(String encRek) {
-		log.info("decryptResponse Success5:::"+encRek);
+		log.info("decryptResponse Success5:::" + encRek);
 		Key aesKey = new SecretKeySpec(sekBytes, "AES");// 3.2
 		try {
 			Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
@@ -236,7 +237,7 @@ public class SupportEwayBillApiService extends AbstractSupportEwayBillApiService
 			rekBytes = decValue;// 3
 			return new String(decValue);
 		} catch (Exception e) {
-			log.info("Fail Exception:::"+encRek);
+			log.info("Fail Exception:::" + encRek);
 			return "Exception " + e;
 		}
 	}
@@ -527,9 +528,8 @@ public class SupportEwayBillApiService extends AbstractSupportEwayBillApiService
 
 						EwayGzJsonStorage entity = new EwayGzJsonStorage();
 						entity.setReturnFileDetailPrimaryId(returnFileDetailPrimaryId);
-						entity.setReturnFileCountPrimarId(returnFileCountPrimaryId);
+						entity.setReturnFileCountPrimaryId(returnFileCountPrimaryId);
 						entity.setFilePath(gzFile.getAbsolutePath());
-						entity.setJsonData(jsonNode);
 						entity.setFileNumber(fileNum);
 						entity.setSequenceNumber(sequenceNumber++);
 						entity.setDt(date);

@@ -2,6 +2,7 @@ package com.deloitte.service.impl;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
@@ -609,36 +610,173 @@ public class CommonEnforecementService extends AbstractServiceClassForAll {
 
 	private EnforcementOfficerGSTR3B getSectionObjForGstr3b(String path, String gstinNumber, MasterData masterData,
 			APIDetails apiDetails) {
+
+		long startTime = System.currentTimeMillis();
+
 		EnforcementOfficerGSTR3B enforcementOfficerGSTR3B = new EnforcementOfficerGSTR3B();
 
-		GSTUserSession gstUserSession = gstUserSessionServices.getUserSessionsByName(masterData.getUserName());
-		HttpHeaders headers = authenticationHelper.getDefaultHeadersEnforcement(masterData,
-				gstUserSession.getAuthToken(), apiDetails.getApiContentType());
+		try {
 
-		GSTCommonResponseBean responseEntity = restClient.get(path, GSTCommonResponseBean.class, headers);
-		if (responseEntity.status_cd.equals("1")) {
-			try {
-				byte[] decodedData = Base64.getDecoder().decode(responseEntity.getData());
-				String decodedDataString = new String(decodedData, "UTF-8");
-				System.out.println("jsonData::" + decodedDataString);
-				lastDecodedJson = decodedDataString;
-				enforcementOfficerGSTR3B = new ObjectMapper().readValue(decodedDataString,
-						EnforcementOfficerGSTR3B.class);
-			} catch (Exception e) {
-				log.error("JSON Parsing Exception for GSTIN " + gstinNumber + " cause " + e.getMessage());
+			log.info("====================================================================");
+			log.info("▶ START : GSTR3B API CALL");
+			log.info("📌 GSTIN           : {}", gstinNumber);
+			log.info("📌 Username        : {}", masterData.getUserName());
+			log.info("📌 API Path        : {}", path);
+			log.info("📌 API ContentType : {}", apiDetails.getApiContentType());
+			log.info("====================================================================");
+
+			GSTUserSession gstUserSession = gstUserSessionServices.getUserSessionsByName(masterData.getUserName());
+
+			if (gstUserSession == null) {
+
+				log.error("❌ GST User Session not found for username={}", masterData.getUserName());
+
+				return enforcementOfficerGSTR3B;
 			}
-		} else if (responseEntity.status_cd.equals("0") && !(responseEntity.getError().isEmpty())
-				&& responseEntity.getError().get("message") != null) {
-			if (responseEntity.getError().get("message")
-					.equalsIgnoreCase("No document found for the provided Inputs")) {
-				log.error("No Data Found For GSTIN User " + gstinNumber);
+
+			log.info("✅ GST Session Found");
+			log.info("📌 Auth Token Available : {}", gstUserSession.getAuthToken() != null ? "YES" : "NO");
+
+			HttpHeaders headers = authenticationHelper.getDefaultHeadersEnforcement(masterData,
+					gstUserSession.getAuthToken(), apiDetails.getApiContentType());
+
+			log.info("📌 Headers Prepared Successfully");
+
+			log.info("🚀 Calling GSTN API...");
+			log.info("📌 Request Path : {}", path);
+
+			GSTCommonResponseBean responseEntity = restClient.get(path, GSTCommonResponseBean.class, headers);
+
+			log.info("✅ GSTN API Response Received");
+
+			if (responseEntity == null) {
+
+				log.error("❌ Null response received from GSTN API");
+				return enforcementOfficerGSTR3B;
 			}
-		} else {
-			log.error("responseEntity " + responseEntity);
-			log.error("No Data Found For GSTIN User " + gstinNumber + " from GSTIN server");
+
+			log.info("📌 Response Status Code : {}", responseEntity.status_cd);
+
+			if ("1".equals(responseEntity.status_cd)) {
+
+				try {
+
+					log.info("✅ Success response received from GSTN");
+
+					if (responseEntity.getData() == null || responseEntity.getData().isEmpty()) {
+
+						log.error("❌ Base64 data is null or empty for GSTIN={}", gstinNumber);
+
+						return enforcementOfficerGSTR3B;
+					}
+
+					log.info("📌 Base64 Response Length : {}", responseEntity.getData().length());
+
+					byte[] decodedData = Base64.getDecoder().decode(responseEntity.getData());
+
+					String decodedDataString = new String(decodedData, StandardCharsets.UTF_8);
+
+					lastDecodedJson = decodedDataString;
+
+					log.info("✅ Base64 Decoded Successfully");
+					log.info("📌 Decoded JSON Length : {}", decodedDataString.length());
+
+					// OPTIONAL - avoid full JSON in production
+					log.debug("📌 Decoded JSON Preview : {}",
+							decodedDataString.substring(0, Math.min(decodedDataString.length(), 1000)));
+
+					enforcementOfficerGSTR3B = new ObjectMapper().readValue(decodedDataString,
+							EnforcementOfficerGSTR3B.class);
+
+					log.info("✅ JSON Parsed Successfully For GSTIN={}", gstinNumber);
+
+				} catch (Exception e) {
+
+					log.error("❌ JSON Parsing Exception");
+					log.error("📌 GSTIN : {}", gstinNumber);
+					log.error("📌 Path  : {}", path);
+					log.error("📌 Error : {}", e.getMessage(), e);
+
+				}
+
+			} else if ("0".equals(responseEntity.status_cd) && responseEntity.getError() != null
+					&& !responseEntity.getError().isEmpty() && responseEntity.getError().get("message") != null) {
+
+				String errorMessage = responseEntity.getError().get("message");
+
+				log.error("❌ GSTN Returned Failure Response");
+				log.error("📌 GSTIN : {}", gstinNumber);
+				log.error("📌 Error Message : {}", errorMessage);
+
+				if ("No document found for the provided Inputs".equalsIgnoreCase(errorMessage)) {
+
+					log.warn("⚠ No Data Found For GSTIN={}", gstinNumber);
+				}
+
+			} else {
+
+				log.error("❌ Unexpected GSTN Response");
+				log.error("📌 GSTIN : {}", gstinNumber);
+				log.error("📌 Path   : {}", path);
+				log.error("📌 Full Response : {}", responseEntity);
+			}
+
+		} catch (Exception ex) {
+
+			log.error("====================================================================");
+			log.error("❌ Exception occurred during GSTR3B API processing");
+			log.error("📌 GSTIN : {}", gstinNumber);
+			log.error("📌 Path  : {}", path);
+			log.error("📌 Error : {}", ex.getMessage(), ex);
+			log.error("====================================================================");
+
+		} finally {
+
+			long totalTime = System.currentTimeMillis() - startTime;
+
+			log.info("====================================================================");
+			log.info("▶ END : GSTR3B API PROCESS");
+			log.info("📌 GSTIN        : {}", gstinNumber);
+			log.info("📌 API Path     : {}", path);
+			log.info("📌 Total Time   : {} ms", totalTime);
+			log.info("====================================================================");
 		}
+
 		return enforcementOfficerGSTR3B;
 	}
+
+//	private EnforcementOfficerGSTR3B getSectionObjForGstr3b(String path, String gstinNumber, MasterData masterData,
+//			APIDetails apiDetails) {
+//		EnforcementOfficerGSTR3B enforcementOfficerGSTR3B = new EnforcementOfficerGSTR3B();
+//
+//		GSTUserSession gstUserSession = gstUserSessionServices.getUserSessionsByName(masterData.getUserName());
+//		HttpHeaders headers = authenticationHelper.getDefaultHeadersEnforcement(masterData,
+//				gstUserSession.getAuthToken(), apiDetails.getApiContentType());
+//
+//		GSTCommonResponseBean responseEntity = restClient.get(path, GSTCommonResponseBean.class, headers);
+//		if (responseEntity.status_cd.equals("1")) {
+//			try {
+//				byte[] decodedData = Base64.getDecoder().decode(responseEntity.getData());
+//				String decodedDataString = new String(decodedData, "UTF-8");
+//				System.out.println("jsonData::" + decodedDataString);
+//				lastDecodedJson = decodedDataString;
+//				enforcementOfficerGSTR3B = new ObjectMapper().readValue(decodedDataString,
+//						EnforcementOfficerGSTR3B.class);
+//			} catch (Exception e) {
+//				log.error("JSON Parsing Exception for GSTIN " + gstinNumber + " cause " + e.getMessage());
+//			}
+//		} else if (responseEntity.status_cd.equals("0") && !(responseEntity.getError().isEmpty())
+//				&& responseEntity.getError().get("message") != null) {
+//			if (responseEntity.getError().get("message")
+//					.equalsIgnoreCase("No document found for the provided Inputs")) {
+//				log.error("No Data Found For GSTIN User " + gstinNumber);
+//			}
+//		} else {
+//			log.error("responseEntity " + responseEntity);
+//			log.error("No Data Found For GSTIN User " + gstinNumber + " from GSTIN server");
+//		}
+//		return enforcementOfficerGSTR3B;
+//	}
 
 	private String getFolderNameForGstr3b(String retPeriod) {
 		StringBuilder path = new StringBuilder(logbackConfig.getFileDirEnforcement())

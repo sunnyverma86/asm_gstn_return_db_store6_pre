@@ -5,6 +5,8 @@ import java.sql.Timestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -14,13 +16,12 @@ import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import tools.jackson.databind.JsonNode;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "eway_gz_json_storage", schema = "common")
+@Table(name = "eway_storage", schema = "eway_bill_not")
 public class EwayGzJsonStorage {
 
 	@Id
@@ -29,7 +30,7 @@ public class EwayGzJsonStorage {
 
 	private Long returnFileDetailPrimaryId;
 
-	private Long returnFileCountPrimarId;
+	private Long returnFileCountPrimaryId;
 
 	private String filePath;
 
@@ -44,6 +45,8 @@ public class EwayGzJsonStorage {
 	private String dt;
 
 	private String category;
+
+	private Boolean isProcessed;
 
 	private Timestamp insertDt;
 }

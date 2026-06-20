@@ -387,7 +387,7 @@ public class FileDownloadHelperCommon extends AbstractFileDownloadHelperCommon {
 					continue;
 				}
 
-				log.info("Processing TAR entry={}", entry.getName());
+				//log.info("Processing TAR entry={}", entry.getName());
 
 				BufferedReader reader = new BufferedReader(new InputStreamReader(tarInput, StandardCharsets.UTF_8));
 

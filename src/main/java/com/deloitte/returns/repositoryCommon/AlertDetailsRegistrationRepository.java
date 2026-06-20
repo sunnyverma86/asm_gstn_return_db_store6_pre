@@ -15,10 +15,15 @@ public interface AlertDetailsRegistrationRepository extends JpaRepository<AlertD
 
 	List<AlertDetailsRegistration> findByIsSuccessIsNullAndEntityIdIsNotNullAndCreateDateTimeIsNotNull();
 
-	List<AlertDetailsRegistration> findByIsSuccessIsNullAndEntityIdIsNotNullAndCreateDateTimeIsNotNullAndPartitionFyGreaterThanEqual(
-			LocalDate partitionDate);
+	List<AlertDetailsRegistration> findByIsSuccessIsNullAndEntityIdIsNotNullAndCreateDateTimeIsNotNullAndPartitionFyGreaterThanEqualAndCounterAttemptLessThan(
+			LocalDate partitionDate, int i);
+	
+	
 
 	List<AlertDetailsRegistration> findByIsSuccessTrueAndIsEntitySuccessIsNullAndEntityJsonIsNullAndPartitionFyGreaterThanEqual(
 			LocalDate partitionDate);
+
+	List<AlertDetailsRegistration> findByIsSuccessTrueAndIsEntitySuccessIsNullAndEntityJsonIsNullAndPartitionFyGreaterThanEqualAndCounterAttemptLessThan(
+			LocalDate partitionDate, int i);
 
 }

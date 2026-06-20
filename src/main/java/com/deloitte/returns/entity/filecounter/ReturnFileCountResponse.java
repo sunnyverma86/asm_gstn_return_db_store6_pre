@@ -17,7 +17,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-//@Table(name = "return_file_count", schema = "asm")
 @Table(name = "\"ReturnFileCount\"", schema = "filecounter")
 public class ReturnFileCountResponse {
 

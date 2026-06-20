@@ -898,6 +898,21 @@ public class CommonCrnServiceImpl extends AbstractCommonCrnServiceImpl {
 		int skipped = 0;
 
 		try {
+			
+		     // =========================================================
+	        // DELETE INVALID RECORDS
+	        // =========================================================
+
+	        int deletedCount = returnCountCrnJsonRepository.deleteRecordsWhereStartDtIsNull();
+
+	        if (deletedCount > 0) {
+
+	            log.warn("🗑️ Deleted {} invalid records where startdt is NULL", deletedCount);
+
+	        } else {
+
+	            log.info("✅ No invalid records found with startdt NULL");
+	        }
 
 			// =========================================================
 			// GET LAST RECORD

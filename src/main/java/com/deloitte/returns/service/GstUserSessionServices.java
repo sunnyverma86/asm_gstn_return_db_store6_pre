@@ -107,8 +107,8 @@ public class GstUserSessionServices {
 		gstAuthenticationInputBean.setAppKey(appKey);
 
 		// System.out.println((gstAuthenticationInputBean.toString()));
-		GSTAuthenticationResponseBean gstAuthenticationResponseBean = gstUserSessionServicesSupport.doAuth(apiDetails, gstAuthenticationInputBean,
-				masterData);
+		GSTAuthenticationResponseBean gstAuthenticationResponseBean = gstUserSessionServicesSupport.doAuth(apiDetails,
+				gstAuthenticationInputBean, masterData);
 
 		if (null != gstAuthenticationResponseBean && gstAuthenticationResponseBean.getStatus_cd().equals("0")) {
 			// throw new
@@ -127,5 +127,25 @@ public class GstUserSessionServices {
 		// gstAuthenticationResponseBean.toString());
 
 	}
+
+	public boolean isSessionExpired(String username) {
+
+		List<GSTUserSession> gstUserSessions = gSTUserSessionRepository
+				.findByUserNameOrderByCreateDateTimeDesc(username);
+
+		// No session found
+		if (gstUserSessions == null || gstUserSessions.isEmpty()) {
+			return true;
+		}
+
+		// Latest session
+		GSTUserSession session = gstUserSessions.get(0);
+
+		// Session validation
+		return session.getAuthDateTime() == null
+				|| session.getAuthDateTime().plusHours(6).isBefore(LocalDateTime.now());
+	}
+
+
 
 }

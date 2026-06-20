@@ -80,6 +80,9 @@ public class AlertDetailsRegistration {
 	
 	@Column(name ="type_registration_msg")//entitytyp
 	private String typeRegistrationMsg;
+	
+	@Column(name = "counter_attempt") //
+	private int counterAttempt;
 
 
 	@PrePersist

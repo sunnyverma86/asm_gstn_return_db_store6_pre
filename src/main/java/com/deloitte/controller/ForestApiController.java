@@ -48,7 +48,7 @@ public class ForestApiController {
 		}
 	}
 
-	@Scheduled(cron = "0 20 11 * * *")
+	@Scheduled(cron = "0 20 16 * * *")
 	@GetMapping("/download-save-daily-data")
 	public ResponseEntity<String> downloadAndSaveDailyData() {
 

@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.deloitte.returns.service.GstUserSessionServices;
+import com.deloitte.service.impl.RegistrationServiceImpl;
 import com.deloitte.service.support.CommonServiceGstrUtilityImpl;
 import com.deloitte.service.support.GstinServiceRegistration;
 
@@ -28,12 +30,28 @@ public class ReturnController {
 	@Autowired
 	private GstinServiceRegistration gstinServiceRegistration;
 
+	@Autowired
+	protected GstUserSessionServices gstUserSessionServices;
+
+	@Autowired
+	protected RegistrationServiceImpl registrationServiceImpl;
+
+	private static final String USERNAME = "GSTG2G18";
+
 	private ResponseEntity<String> scheduleWithLogging(String application, String apiName) {
 
 		long startTime = System.currentTimeMillis();
 		log.info("🚀 [START] API={} | Application={}", apiName, application);
 
 		try {
+
+			if (gstUserSessionServices.isSessionExpired(USERNAME)) {
+
+				log.error("❌ SESSION EXPIRED BEFORE 6 HOUR");
+
+				return ResponseEntity.badRequest().body("SESSION EXPIRED BEFORE 6 HOUR");
+			}
+
 			// Step 1: Schedule Download
 			log.info("📥 [STEP-1] Starting schedule download | Application={}", application);
 			String response = commonControllerGstrUtilityImpl.scheduleDownload(application);
@@ -94,7 +112,7 @@ public class ReturnController {
 		return scheduleWithLogging("R2B", "scheduleGstr2bDownload");
 	}
 
-	@Scheduled(cron = "0 10 7 * * *")
+	@Scheduled(cron = "0 40 6 * * *")
 	@GetMapping("/scheduleGstr3b") // ready
 	public ResponseEntity<String> scheduleGstr3bDownload() {
 		return scheduleWithLogging("R3B", "scheduleGstr3bDownload");
@@ -146,7 +164,7 @@ public class ReturnController {
 		return scheduleWithLogging("R98A", "scheduleGstr98aDownload");
 	}
 
-	@Scheduled(cron = "0 20 9 * * *")
+	@Scheduled(cron = "0 10 9 * * *")
 	@GetMapping("/scheduleGstr9c") // ready---
 	public ResponseEntity<String> scheduleGstr9cDownload() {
 		return scheduleWithLogging("R9C", "scheduleGstr9cDownload");
@@ -158,7 +176,7 @@ public class ReturnController {
 		return scheduleWithLogging("R10", "scheduleGstr10Download");
 	}
 
-	@Scheduled(cron = "0 30 9 * * *")
+	@Scheduled(cron = "0 20 9 * * *")
 	@GetMapping("/scheduleGstr11") // ready---
 	public ResponseEntity<String> scheduleGstr11Download() {
 		return scheduleWithLogging("R11", "scheduleGstr11Download");
@@ -242,12 +260,33 @@ public class ReturnController {
 		return ResponseEntity.ok(response);
 	}
 
-	@GetMapping("/processFewDocuments") // need to change the table
+	@GetMapping("/processFewDocuments") // need to change the table--
 	public ResponseEntity<String> processFewDocuments() {
 
 		String userName = "GSTG2G18";
 
 		String response = gstinServiceRegistration.processFewDocuments(userName);
+
+		return ResponseEntity.ok(response);
+	}
+
+	@GetMapping("/get-comparison-report") // Get Comparison Report
+	public ResponseEntity<String> getComparisonReport() {
+
+		String userName = "GSTG2G18";
+
+		String response = registrationServiceImpl.processDocumentsHim(userName);
+
+		return ResponseEntity.ok(response);
+	}
+	
+	
+	@GetMapping("/process-documents-dh") // need to change the table--
+	public ResponseEntity<String> processDocumentsDh() {
+
+		String userName = "GSTG2G18";
+
+		String response = gstinServiceRegistration.processDocumentsDh(userName);
 
 		return ResponseEntity.ok(response);
 	}

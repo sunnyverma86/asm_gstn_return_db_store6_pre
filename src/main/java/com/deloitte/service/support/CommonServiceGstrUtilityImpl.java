@@ -67,82 +67,7 @@ public class CommonServiceGstrUtilityImpl {
 
 		try {
 
-			/*
-			 * ===================================================== STEP-1 : FETCH FAILED
-			 * "2026-01-04" RECORDS =====================================================
-			 */
-//			List<ReturnFileCountResponse> failedRecords = returnFileCountResponseRepository
-//					.findAllByTyAndIsSuccessFalseAndCounterAttemptLessThanAndDtGreaterThanOrderByDtDesc(application, 10,
-//							Date.valueOf("2026-04-25"));
-//
-//			/*
-//			 * ===================================================== PROCESS FAILED RECORDS
-//			 * FIRST =====================================================
-//			 */
-//			if (failedRecords != null && !failedRecords.isEmpty()) {
-//
-//				log.warn("FAILED RECORDS FOUND | APP={} | COUNT={}", application, failedRecords.size());
-//
-//				for (ReturnFileCountResponse failedRecord : failedRecords) {
-//
-//					try {
-//
-//						String failedDate = failedRecord.getDt().toLocalDate().format(formatter);
-//
-//						log.warn("RETRY STARTED | APP={} | DATE={} | ATTEMPT={}", application, failedDate,
-//								failedRecord.getCounterAttempt());
-//
-//						long retryStartTime = System.currentTimeMillis();
-//
-//						String retryResponse = processDateForGstr(username, failedDate, application);
-//
-//						long retryTime = System.currentTimeMillis() - retryStartTime;
-//
-//						log.info("RETRY COMPLETED | APP={} | DATE={} | TIME={} ms | RESPONSE={}", application,
-//								failedDate, retryTime, retryResponse);
-//
-//					} catch (Exception retryException) {
-//
-//						log.error("RETRY FAILED | APP={} | DATE={} | ERROR={}", application, failedRecord.getDt(),
-//								retryException.getMessage(), retryException);
-//					}
-//				}
-//
-//				long failedProcessingTime = System.currentTimeMillis() - overallStartTime;
-//
-//				log.info("ALL FAILED RECORDS PROCESSED | APP={} | TOTAL_TIME={} ms", application, failedProcessingTime);
-//
-//				return "FAILED_RECORDS_PROCESSED";
-//			}
-
-			/*
-			 * ===================================================== STEP-2 : FETCH LAST
-			 * SUCCESS RECORD =====================================================
-			 */
-//			String startDate;
-//
-//			Optional<ReturnFileCountResponse> successRecordOpt = returnFileCountResponseRepository
-//					.findTopByTyAndMsgOrderByDtDesc(application, SUCCESS);
-//
-//			if (successRecordOpt.isPresent()) {
-//
-//				LocalDate nextDate = successRecordOpt.get().getDt().toLocalDate().plusDays(1);
-//
-//				startDate = nextDate.format(formatter);
-//
-//				log.info("LAST SUCCESS RECORD FOUND | APP={} | NEXT_START_DATE={}", application, startDate);
-//
-//			} else {
-//
-//				startDate = "18-05-2026";
-//
-//				log.warn("NO SUCCESS RECORD FOUND | APP={} | USING_DEFAULT_START_DATE={}", application, startDate);
-//			}
-
-			/*
-			 * ===================================================== STEP-3 : END DATE
-			 * =====================================================
-			 */
+		
 			ReturnDateLog logData = returnDateLogRepository.findTopByOrderByIdDesc();
 
 			String startDate;
@@ -233,29 +158,9 @@ public class CommonServiceGstrUtilityImpl {
 
 		try {
 
-			/*
-			 * ========================================================= STEP-1 : DATE
-			 * CONVERSION =========================================================
-			 */
 			Date sqlDate = Date.valueOf(LocalDate.parse(date, DateTimeFormatter.ofPattern("dd-MM-yyyy")));
 
-			/*
-			 * ========================================================= STEP-2 : CHECK DATA
-			 * ALREADY PRESENT =========================================================
-			 */
-//			boolean dataAlreadyPresent = fileDownloadHelperCommon.isDataAlreadyPresent(application, sqlDate);
-//
-//			if (dataAlreadyPresent) {
-//
-//				log.warn("DATA_ALREADY_PRESENT | App={} | Date={}", application, date);
-//
-//				return "Already Processed";
-//			}
 
-			/*
-			 * ========================================================= STEP-3 : FETCH
-			 * EXISTING ENTRY =========================================================
-			 */
 			Optional<ReturnFileCountResponse> existingOpt = returnFileCountResponseRepository.findByTyAndDt(application,
 					sqlDate);
 
@@ -275,6 +180,13 @@ public class CommonServiceGstrUtilityImpl {
 					log.info("ALREADY_SUCCESS | App={} | Date={}", application, date);
 
 					return "Already SUCCESS";
+				}
+				
+				if (entity.getCounterAttempt()>5) {
+
+					log.info("COUNTER_ATTEMPT MORE THAN 5  | App={} | Attempt={}  | Date={}", application,entity.getCounterAttempt(), date);
+
+					return "Already MORE THAN 5 ATTEMPT";
 				}
 
 				/*

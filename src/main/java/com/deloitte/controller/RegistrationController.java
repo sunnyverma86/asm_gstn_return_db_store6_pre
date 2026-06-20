@@ -1,10 +1,13 @@
 package com.deloitte.controller;
 
 import java.io.UnsupportedEncodingException;
+import java.time.LocalDateTime;
 import java.util.function.Supplier;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.deloitte.returns.service.GstUserSessionServices;
 import com.deloitte.service.impl.ArnHandlerForRegistration;
 import com.deloitte.service.impl.GstinExcelService;
 import com.deloitte.service.support.GstinServiceRegistration;
@@ -33,6 +37,11 @@ public class RegistrationController {
 	@Autowired
 	private ArnHandlerForRegistration arnHandlerForRegistration;
 
+	@Autowired
+	protected GstUserSessionServices gstUserSessionServices;
+
+	private static final String USERNAME = "GSTG2G18";
+
 	// =========================================================
 	// COMPLETE AUTOMATION FLOW
 	// 1. ALERT API-->case-alert-automatically
@@ -40,6 +49,7 @@ public class RegistrationController {
 	// 3. REGISTRATION API-->all-registration-automatically
 	// =========================================================
 
+	@Scheduled(cron = "0 10 1 * * *")
 	@GetMapping("/complete-registration-automation")
 	public ResponseEntity<String> completeRegistrationAutomation() {
 
@@ -50,6 +60,12 @@ public class RegistrationController {
 		long startTime = System.currentTimeMillis();
 
 		try {
+			if (gstUserSessionServices.isSessionExpired(USERNAME)) {
+
+				log.error("❌ SESSION EXPIRED BEFORE 6 HOUR");
+
+				return ResponseEntity.badRequest().body("SESSION EXPIRED BEFORE 6 HOUR");
+			}
 
 			String finalResponse = gstinService.executeCompleteAutomation();
 
@@ -71,6 +87,33 @@ public class RegistrationController {
 
 			return ResponseEntity.internalServerError().body("COMPLETE AUTOMATION FAILED : " + ex.getMessage());
 		}
+	}
+
+	//startDateTime=2026-06-15 00:00:000&
+	//endDateTime=2026-06-16 00:00:00
+	@GetMapping("/case-alert-by-date-range-for-exception")
+	public String processAlertByDateRange(
+			@RequestParam("startDateTime") @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime currentStartDateTime,
+
+			@RequestParam("endDateTime") @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime finalEndDateTime)
+			throws UnsupportedEncodingException {
+
+		log.info("Received request to process ALERT from {} to {}", currentStartDateTime, finalEndDateTime);
+
+		return gstinService.processAlertByDateRange(currentStartDateTime, finalEndDateTime);
+	}
+	
+	@Scheduled(cron = "0 46 1 * * *")
+	@GetMapping("/retry-alert-exception")
+	public String retryAlertException() {
+
+		log.info("Received request to retry ALERT exceptions");
+
+		String response = gstinService.retryAlertException();
+
+		log.info("Retry ALERT exception completed");
+
+		return response;
 	}
 
 	@GetMapping("/case-alert-automatically")
@@ -108,12 +151,8 @@ public class RegistrationController {
 
 		return response;
 	}
-	
-	
-	
-	
-	
-	//not in use please don't use these below
+
+	// not in use please don't use these below
 
 	// ===========Fetch CRN based on case type and month range====//
 	@GetMapping("/case-alert")

@@ -171,3 +171,37 @@ VALUES (
     CURRENT_TIMESTAMP,
     '27-04-2026'
 );
+
+
+
+
+CREATE TABLE document.dcupdtls_gstr9c
+(LIKE gst_api_gstr_9c.dcupdtls_gstr9c INCLUDING ALL);
+
+INSERT INTO document.dcupdtls_gstr9c
+SELECT *
+FROM gst_api_gstr_9c.dcupdtls_gstr9c;
+
+
+
+//Total records          : 485,694
+//Records having FY      : 330,241
+//Records without FY     : 155,453
+
+ALTER TABLE filecounter.crn_detail_common
+ADD COLUMN dof VARCHAR(20),
+ADD COLUMN gstin VARCHAR(20),
+ADD COLUMN fy VARCHAR(20);
+
+
+UPDATE filecounter.crn_detail_common
+SET
+    dof   = jsondata ->> 'dof',
+    gstin = jsondata ->> 'gstin'
+WHERE dof IS NULL
+   OR gstin IS NULL;
+
+
+   UPDATE filecounter.crn_detail_common
+SET fy = jsonb_path_query_first(jsondata, '$.**.fy') #>> '{}'
+WHERE fy IS NULL;

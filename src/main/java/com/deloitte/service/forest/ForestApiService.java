@@ -121,10 +121,15 @@ public class ForestApiService {
 		repository.saveAll(entities);
 	}
 
+
+	
 	private ForestPaymentDetails mapToEntity(ForestPaymentDto dto) {
 		try {
 			ForestPaymentDetails e = new ForestPaymentDetails();
+			e.setModuleName(dto.getModulename());
+			e.setMineralName(dto.getMineral_name());
 			e.setStakeholder(dto.getStakeholder());
+			e.setCpin(dto.getCpin());
 			e.setPan(dto.getPan());
 			e.setGstNo(dto.getGst_no());
 			e.setDfoGstNo(dto.getDfo_gstno());

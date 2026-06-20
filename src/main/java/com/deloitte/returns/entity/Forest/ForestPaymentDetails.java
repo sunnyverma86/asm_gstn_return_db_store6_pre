@@ -3,11 +3,11 @@ package com.deloitte.returns.entity.Forest;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import lombok.Data;
 
@@ -17,15 +17,29 @@ import lombok.Data;
 public class ForestPaymentDetails {
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "payment_details_seq")
-	@SequenceGenerator(name = "payment_details_seq", sequenceName = "analytics.payment_details_seq", allocationSize = 1)
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	private String stakeholder;
 	private String pan;
 	private String gstNo;
 	private String dfoGstNo;
-	private String paymentType;
+
 	private BigDecimal amount;
 	private LocalDate paymentDate;
+
+	@Column(name = "module_name",length = 1000)
+	private String moduleName;
+
+	@Column(name = "stakeholder",length = 1000)
+	private String stakeholder;
+
+	@Column(name = "mineral_name",length = 1000)
+	private String mineralName;
+
+	@Column(name = "payment_type")
+	private String paymentType;
+
+
+	@Column(name = "cpin")
+	private String cpin;;
 }

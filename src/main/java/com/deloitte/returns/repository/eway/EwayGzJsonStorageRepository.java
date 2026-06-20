@@ -7,4 +7,5 @@ import com.deloitte.returns.entity.EwayGzJsonStorage;
 
 @Repository
 public interface EwayGzJsonStorageRepository extends JpaRepository<EwayGzJsonStorage, Long> {
+
 }

@@ -8,4 +8,6 @@ import com.deloitte.returns.entity.AEwayBill.EwbCountData;
 @Repository
 public interface EwbCountDataRepository extends JpaRepository<EwbCountData, Long> {
 
+	EwbCountData findByEwbDtAndEwbCategory(String date, String category);
+
 }

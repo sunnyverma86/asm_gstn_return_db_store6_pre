@@ -1,14 +1,18 @@
 package com.deloitte.controller;
 
 import java.io.UnsupportedEncodingException;
+import java.time.LocalDateTime;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.deloitte.common.entity.GSTUserSession;
+import com.deloitte.returns.service.GstUserSessionServices;
 import com.deloitte.service.impl.CommonCrnServiceImpl;
 import com.deloitte.service.support.crn.CommonCrnServicePreImpl;
 import com.deloitte.service.utility.procedure.CrnProcedureService;
@@ -29,11 +33,25 @@ public class CrnController {
 	@Autowired
 	private CrnProcedureService crnProcedureService;
 
+	@Autowired
+	protected GstUserSessionServices gstUserSessionServices;
+
+	private static final String USERNAME = "GSTG2G18";
+
 	// ===========Download CRN data based on user name and time range====//
+	@Scheduled(cron = "0 10 3 * * *")
 	@GetMapping("/process-crn-automatically")
 	public String processCrnAutomatically() throws UnsupportedEncodingException {
 
 		log.info("Download request processCrnAutomatically");
+
+		// SESSION VALIDATION
+		if (gstUserSessionServices.isSessionExpired(USERNAME)) {
+
+			log.error("❌ SESSION EXPIRED BEFORE 6 HOUR");
+
+			return "SESSION EXPIRED BEFORE 6 HOUR";
+		}
 
 		String response = commonCrnServiceImpl.processCrnAutomatically();
 
@@ -41,7 +59,7 @@ public class CrnController {
 
 		return response;
 	}
-
+	@Scheduled(cron = "0 40 3 * * *")
 	@GetMapping("/process-pending")
 	public ResponseEntity<String> processPendingCrn() {
 
@@ -50,6 +68,13 @@ public class CrnController {
 		log.info("============== CRN Processing Started ==============");
 
 		try {
+			// SESSION VALIDATION
+			if (gstUserSessionServices.isSessionExpired(USERNAME)) {
+
+				log.error("❌ SESSION EXPIRED BEFORE 6 HOUR");
+
+				return ResponseEntity.badRequest().body("SESSION EXPIRED BEFORE 6 HOUR");
+			}
 			String response = commonCrnServicePreImpl.processPendingCrns();
 
 			long endTime = System.currentTimeMillis();
@@ -59,7 +84,6 @@ public class CrnController {
 
 			return ResponseEntity.ok(response);
 
-			
 		} catch (Exception e) {
 
 			log.error("CRN processing failed", e);
@@ -67,15 +91,6 @@ public class CrnController {
 			return ResponseEntity.internalServerError().body("CRN processing failed: " + e.getMessage());
 		}
 	}
-	
-	
-	
-	
-	
-	
-	
-	
-	
 
 	/**
 	 * SINGLE CLICK COMPLETE FLOW

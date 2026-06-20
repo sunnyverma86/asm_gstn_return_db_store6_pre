@@ -16,7 +16,9 @@ public class Constants {
 	public static final String BASE_PATH = "https://boapi.internal.gst.gov.in";
 
 	public static final String GET_RETURN_FILE_DETAIL_CRN_lIST = "Get Return File Details refund";
-	public static final String GET_RETURN_FILE_DETAIL_REFUND_DATA = "Get Return File Details refund data";
+	public static final String GET_RETURN_FILE_DETAIL_AMYDT_DATA = "Get Return File Details amydt data";
+	
+	public static final String GET_RETURN_FILE_DETAIL_REFUND_DATA = "Get Return File Details refund data";//NEW
 	
 	public static final String GET_RETURN_FILE_DETAIL_ALERT_lIST = "Get Return File Details alert";
 	
@@ -57,6 +59,8 @@ public class Constants {
 	public static final String GET_ENFORCEMENT_OFFICER_RECORD_SEARCH_PAYMENTS = "Get Enforcement Officer Record Search Payments";
 
 	public static final String GET_REGISTRATION_DOWNLOAD_DOCUMENT = "Get Registration Download Document";
+	
+	public static final String GET_COMPARISION_REPORT = "Get Comparison Report";
 
 	public static final String COMMON_AUTH_PUBLIC = "COMMON_AUTH_PUBLIC";
 

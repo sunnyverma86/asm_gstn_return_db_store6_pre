@@ -87,12 +87,15 @@ INSERT INTO public.api_details(	create_date_time, updated_date_time,  api_action
 --APPEL
 INSERT INTO public.api_details(	create_date_time, updated_date_time,  api_action, api_content_type, api_encryption, api_name, api_path, api_url_parameters, is_active) VALUES (now(), now(), 'GETDATA', 'application/json', 'false','Get Return Appel Adjudication','/govtapi/v1.0/appeal', NULL, 'true');
 
+--Get Comparison Report
+INSERT INTO public.api_details(	create_date_time, updated_date_time,  api_action, api_content_type, api_encryption, api_name, api_path, api_url_parameters, is_active)  VALUES (now(), now(), 'COMPREPORT', 'application/json', 'false', 'Get Comparison Report', '/govtapi/v2.1/returns/getcompdata', NULL, 'true');
 
 
-INSERT INTO asm.return_date_log (insert_dt, start_date)
+
+INSERT INTO common.return_date_log (insert_dt, start_date)
 VALUES (
     CURRENT_TIMESTAMP,
-    '25-04-2026'
+    '12-05-2026'
 );
 common
 CREATE SCHEMA IF NOT EXISTS common   AUTHORIZATION postgres;
@@ -100,7 +103,9 @@ CREATE SCHEMA IF NOT EXISTS filecounter   AUTHORIZATION postgres;
 CREATE SCHEMA IF NOT EXISTS asm    AUTHORIZATION postgres;
 http://localhost:8084/masterData/create
 -- For testing purpose only 
---INSERT INTO public.api_details(create_date_time, updated_date_time,  api_action, api_content_type, api_encryption, api_name, api_path, api_url_parameters, is_active) VALUES (now(), now(), 'FILECNT', 'application/json', 'false', 'Get Payment File Count', '/govtapi/v0.2/payment', NULL, 'true');
+INSERT INTO public.api_details(create_date_time, updated_date_time,  api_action, api_content_type, api_encryption, api_name, api_path, api_url_parameters, is_active) VALUES (now(), now(), 'FILECNT', 'application/json', 'false', 'Get Payment File Count', '/govtapi/v0.2/payment', NULL, 'true');
+
+
 --------------------------------------------------------------------------------------------------------------------
 
 CREATE SCHEMA IF NOT EXISTS asm    AUTHORIZATION postgres;
@@ -290,6 +295,130 @@ CREATE SCHEMA IF NOT EXISTS enforcement_officer_RSR    AUTHORIZATION postgres;
 
 CREATE SCHEMA IF NOT EXISTS payment  AUTHORIZATION postgres;
 CREATE SCHEMA IF NOT EXISTS download_document  AUTHORIZATION postgres;
+
+
+SELECT * FROM filecounter."ReturnFileCount"
+ORDER BY "ReturnFileCountId" desc 
+
+SELECT "ReturnFileCountId", file_num, cnt, url, "IsSuccess", msg, "ReturnFileDetailId", insertdatetime, dt, hash
+	FROM filecounter."ReturnFileDetail" 
+	where "ReturnFileCountId" ='41963'
+	order by  "ReturnFileDetailId" desc limit 100;
+
+	SELECT "Id", "ReturnFileDetailId", filepath, jsondata, filenumber, dt, category, insert_dt, "ReturnFileCountId", sequence_number, is_processed
+	FROM log.payment_initial_json 	where "ReturnFileCountId" ='41963';
+	
+	
+	
+	-- =========================================================
+-- SCHEMA CREATE (IF NOT EXISTS)
+-- =========================================================
+
+CREATE SCHEMA IF NOT EXISTS analytical_dashboard;
+
+-- =========================================================
+-- SEQUENCE FOR return_comparison_report_gstin
+-- =========================================================
+
+CREATE SEQUENCE IF NOT EXISTS analytical_dashboard.return_comparison_report_gstin_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    MINVALUE 1
+    CACHE 1;
+
+-- =========================================================
+-- TABLE : return_comparison_report_gstin
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS analytical_dashboard.return_comparison_report_gstin
+(
+    id BIGINT NOT NULL DEFAULT nextval(
+        'analytical_dashboard.return_comparison_report_gstin_id_seq'
+    ),
+
+    gstin VARCHAR(20),
+
+    fy VARCHAR(10),
+
+    counter_attempt INTEGER DEFAULT 0,
+
+    is_processed BOOLEAN DEFAULT FALSE,
+
+    CONSTRAINT return_comparison_report_gstin_pkey
+        PRIMARY KEY (id)
+);
+
+-- =========================================================
+-- SEQUENCE OWNED BY
+-- =========================================================
+
+ALTER SEQUENCE analytical_dashboard.return_comparison_report_gstin_id_seq
+OWNED BY analytical_dashboard.return_comparison_report_gstin.id;
+
+-- =========================================================
+-- SEQUENCE FOR return_comparison_report_gstin_json
+-- =========================================================
+
+CREATE SEQUENCE IF NOT EXISTS analytical_dashboard.return_comparison_report_gstin_json_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    MINVALUE 1
+    CACHE 1;
+
+-- =========================================================
+-- TABLE : return_comparison_report_gstin_json
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS analytical_dashboard.return_comparison_report_gstin_json
+(
+    id BIGINT NOT NULL DEFAULT nextval(
+        'analytical_dashboard.return_comparison_report_gstin_json_id_seq'
+    ),
+
+    gstin VARCHAR(20),
+
+    fy VARCHAR(10),
+
+    jsondata JSONB,
+
+    counter_attempt INTEGER DEFAULT 0,
+
+    is_processed BOOLEAN DEFAULT FALSE,
+
+    create_date_time TIMESTAMP,
+
+    updated_date_time TIMESTAMP,
+
+    CONSTRAINT return_comparison_report_gstin_json_pkey
+        PRIMARY KEY (id)
+);
+
+-- =========================================================
+-- SEQUENCE OWNED BY
+-- =========================================================
+
+ALTER SEQUENCE analytical_dashboard.return_comparison_report_gstin_json_id_seq
+OWNED BY analytical_dashboard.return_comparison_report_gstin_json.id;
+
+-- =========================================================
+-- INDEXES (OPTIONAL BUT RECOMMENDED)
+-- =========================================================
+
+CREATE INDEX IF NOT EXISTS idx_rcg_gstin
+ON analytical_dashboard.return_comparison_report_gstin(gstin);
+
+CREATE INDEX IF NOT EXISTS idx_rcg_processed
+ON analytical_dashboard.return_comparison_report_gstin(is_processed);
+
+CREATE INDEX IF NOT EXISTS idx_rcgj_gstin
+ON analytical_dashboard.return_comparison_report_gstin_json(gstin);
+
+CREATE INDEX IF NOT EXISTS idx_rcgj_processed
+ON analytical_dashboard.return_comparison_report_gstin_json(is_processed);
+
+CREATE INDEX IF NOT EXISTS idx_rcgj_jsondata
+ON analytical_dashboard.return_comparison_report_gstin_json
+USING GIN (jsondata);
 
 
 

@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -41,6 +42,7 @@ import com.deloitte.common.entity.APIDetails;
 import com.deloitte.common.entity.GSTUserSession;
 import com.deloitte.common.entity.MasterData;
 import com.deloitte.returns.entity.GstinEntity;
+import com.deloitte.returns.entity.DownloadDocument.DcupdtlsGstr9c;
 import com.deloitte.returns.entity.regis.RegistrationDataJsonFile;
 import com.deloitte.returns.entity.regis.RegistrationDataJsonFileView;
 import com.deloitte.returns.entity.regis.RegistrationNormalTaxPayer;
@@ -50,6 +52,7 @@ import com.deloitte.returns.entity.registration.AlertRegistration;
 import com.deloitte.returns.entity.registration.RegDocuments;
 import com.deloitte.returns.entity.registration.RentActivePpbzdtls;
 import com.deloitte.service.abs.CommonServiceImplAbs;
+import com.deloitte.service.utility.SftpUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
@@ -67,6 +70,8 @@ public class GstinServiceRegistration extends CommonServiceImplAbs {
 	private static final DateTimeFormatter ALERT_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd:HH:mm:ss");
 	private static final DateTimeFormatter ALERT_FORMATTER_ONLY = DateTimeFormatter.ofPattern("yyyy-MM-dd:HH:mm");
 
+	private static final String BASE_PATH_DW = "/var/gst_files/GST_FILES/Return_Auto/dw";
+
 	GstinServiceRegistration(CommonControllerGstrUtilityImpl commonControllerGstrUtilityImpl) {
 		this.commonControllerGstrUtilityImpl = commonControllerGstrUtilityImpl;
 	}
@@ -80,7 +85,8 @@ public class GstinServiceRegistration extends CommonServiceImplAbs {
 		// =====================================================
 		// GET LAST PROCESSED RECORD
 		// =====================================================
-
+		int deletedCount = alertRegistrationRepository.deleteRecordsWhereStartTmIsNull();
+		log.info("Deleted records count={}", deletedCount);
 		Optional<AlertRegistration> optionalAlert = alertRegistrationRepository.getLastProcessedAlert();
 
 		LocalDateTime currentStartDateTime;
@@ -964,7 +970,7 @@ public class GstinServiceRegistration extends CommonServiceImplAbs {
 		// 🔥 Blocking Queue
 		BlockingQueue<RegDocuments> updateQueue = new LinkedBlockingQueue<>();
 
-		final int BATCH_SIZE = 5000;
+		final int BATCH_SIZE = 500;
 
 		// 🔥 DB SAVER THREAD
 		Thread dbSaverThread = new Thread(() -> {
@@ -1014,7 +1020,7 @@ public class GstinServiceRegistration extends CommonServiceImplAbs {
 
 			while (true) {
 
-				Pageable pageable = PageRequest.of(0, 5000);
+				Pageable pageable = PageRequest.of(0, 500);
 
 				Page<RegDocuments> page = regDocumentsRepository.findByIsSuccessIsNullOrIsSuccessFalse(pageable);
 
@@ -1155,7 +1161,7 @@ public class GstinServiceRegistration extends CommonServiceImplAbs {
 
 			while (true) {
 
-				Pageable pageable = PageRequest.of(0, 5000);
+				Pageable pageable = PageRequest.of(0, 500);
 
 				Page<RentActivePpbzdtls> page = RentActivePpbzdtlsRepository
 						.findByIsProcessedNullOrIsProcessedFalse(pageable);
@@ -1421,6 +1427,643 @@ public class GstinServiceRegistration extends CommonServiceImplAbs {
 		finalResponse.append("\nOVERALL TIME : ").append(overallTime).append(" ms");
 
 		return finalResponse.toString();
+	}
+
+//	// GET-COMPARISION-REPORT
+//	public String getComparisonReport(String userName) {
+//
+//		long startTime = System.currentTimeMillis();
+//		log.info("Started bulk getComparisonReport={}", userName);
+//
+//		MasterData masterData = masterDataService.getMasterdatabyName(userName);
+//		if (masterData == null)
+//			return "Master data not found";
+//
+//		GSTUserSession session = gstUserSessionServices.getUserSessionsByName(userName);
+//		if (session == null)
+//			return "Session not authenticated";
+//
+//		ExecutorService executor = Executors.newFixedThreadPool(50);
+//
+//		AtomicInteger successCount = new AtomicInteger(0);
+//		AtomicInteger failedCount = new AtomicInteger(0);
+//
+//		// 🔥 Blocking Queue
+//		BlockingQueue<ReturnComparisonReportGstin> updateQueue = new LinkedBlockingQueue<>();
+//
+//		final int BATCH_SIZE = 1;
+//
+//		// 🔥 DB SAVER THREAD
+//		Thread dbSaverThread = new Thread(() -> {
+//
+//			List<ReturnComparisonReportGstin> batch = new ArrayList<>();
+//
+//			try {
+//				while (true) {
+//
+//					ReturnComparisonReportGstin doc = updateQueue.poll(5, TimeUnit.SECONDS);
+//
+//					if (doc != null) {
+//						batch.add(doc);
+//					}
+//
+//					// SAVE WHEN BATCH FULL
+//					if (batch.size() >= BATCH_SIZE) {
+//						returnComparisonReportGstinRepository.saveAll(batch);
+//						returnComparisonReportGstinRepository.flush();
+//
+//						log.info("✅ Batch saved size={}", batch.size());
+//						batch.clear();
+//					}
+//
+//					// Stop condition
+//					if (Thread.currentThread().isInterrupted()) {
+//						break;
+//					}
+//				}
+//
+//				// FINAL SAVE
+//				if (!batch.isEmpty()) {
+//					returnComparisonReportGstinRepository.saveAll(batch);
+//					returnComparisonReportGstinRepository.flush();
+//					log.info("✅ Final batch saved size={}", batch.size());
+//				}
+//
+//			} catch (Exception e) {
+//				log.error("DB Saver Thread failed", e);
+//			}
+//
+//		});
+//
+//		dbSaverThread.start();
+//
+//		try {
+//
+//			while (true) {
+//
+//				Pageable pageable = PageRequest.of(0, 5000);
+//
+////				Page<ReturnComparisonReportGstin> page = returnComparisonReportGstinRepository
+////						.findByIsProcessedNullOrIsProcessedFalse(pageable);
+//
+//				Page<ReturnComparisonReportGstin> page = returnComparisonReportGstinRepository
+//						.findByIsProcessedNullOrIsProcessedFalseAndCounterAttemptLessThan(10, pageable);
+//
+//				if (page.isEmpty()) {
+//					log.info("✅ No more pending records found. Exiting loop.");
+//					break;
+//				}
+//
+//				log.info("Fetched records size={}", page.getContent().size());
+//
+//				List<CompletableFuture<Void>> futures = new ArrayList<>();
+//
+//				for (ReturnComparisonReportGstin doc : page.getContent()) {
+//
+//					CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+//
+//						try {
+//							registrationServiceImpl.processSingleSingleGstin(masterData, session, doc, updateQueue);
+//							successCount.incrementAndGet();
+//
+//						} catch (Exception e) {
+//							failedCount.incrementAndGet();
+//							log.error("Failed Year={} gstin={}", doc.getFy(), doc.getGstin(), e);
+//
+//							registrationServiceImpl.updateErrorRecordGetComparisonReport(doc, updateQueue);
+//						}
+//
+//					}, executor);
+//
+//					futures.add(future);
+//				}
+//
+//				// wait for all threads
+//				CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+//
+//				log.info("Loop completed processed={}", page.getContent().size());
+//			}
+//
+//		} catch (Exception e) {
+//			log.error("Bulk processing failed", e);
+//		} finally {
+//
+//			// stop executor
+//			executor.shutdown();
+//			try {
+//				if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+//					executor.shutdownNow();
+//				}
+//			} catch (InterruptedException e) {
+//				executor.shutdownNow();
+//				Thread.currentThread().interrupt();
+//			}
+//
+//			// 🔥 STOP DB THREAD
+//			dbSaverThread.interrupt();
+//			try {
+//				dbSaverThread.join();
+//			} catch (InterruptedException e) {
+//				Thread.currentThread().interrupt();
+//			}
+//		}
+//
+//		long totalTime = System.currentTimeMillis() - startTime;
+//
+//		log.info("Completed | success={} | failed={} | time={} ms", successCount.get(), failedCount.get(), totalTime);
+//
+//		return "Success: " + successCount.get() + ", Failed: " + failedCount.get() + ", Time(ms): " + totalTime;
+//	}
+
+	public String processDocumentsDh(String userName) {
+
+		long startTime = System.currentTimeMillis();
+		log.info("Started bulk document processing-dh for user={}", userName);
+
+		MasterData masterData = masterDataService.getMasterdatabyName(userName);
+		if (masterData == null)
+			return "Master data not found";
+
+		GSTUserSession session = gstUserSessionServices.getUserSessionsByName(userName);
+		if (session == null)
+			return "Session not authenticated";
+
+		ExecutorService executor = Executors.newFixedThreadPool(50);
+
+		AtomicInteger successCount = new AtomicInteger(0);
+		AtomicInteger failedCount = new AtomicInteger(0);
+
+		// 🔥 Blocking Queue
+		BlockingQueue<DcupdtlsGstr9c> updateQueue = new LinkedBlockingQueue<>();
+
+		final int BATCH_SIZE = 1;
+
+		// 🔥 DB SAVER THREAD
+		Thread dbSaverThread = new Thread(() -> {
+
+			List<DcupdtlsGstr9c> batch = new ArrayList<>();
+
+			try {
+				while (true) {
+
+					DcupdtlsGstr9c doc = updateQueue.poll(5, TimeUnit.SECONDS);
+
+					if (doc != null) {
+						batch.add(doc);
+					}
+
+					// SAVE WHEN BATCH FULL
+					if (batch.size() >= BATCH_SIZE) {
+						dcupdtlsGstr9cRepository.saveAll(batch);
+						dcupdtlsGstr9cRepository.flush();
+
+						log.info("✅ Batch saved size={}", batch.size());
+						batch.clear();
+					}
+
+					// Stop condition
+					if (Thread.currentThread().isInterrupted()) {
+						break;
+					}
+				}
+
+				// FINAL SAVE
+				if (!batch.isEmpty()) {
+					dcupdtlsGstr9cRepository.saveAll(batch);
+					dcupdtlsGstr9cRepository.flush();
+					log.info("✅ Final batch saved size={}", batch.size());
+				}
+
+			} catch (Exception e) {
+				log.error("DB Saver Thread failed", e);
+			}
+
+		});
+
+		dbSaverThread.start();
+
+		try {
+
+			while (true) {
+
+				Pageable pageable = PageRequest.of(0, 500);
+
+				Page<DcupdtlsGstr9c> page = dcupdtlsGstr9cRepository.findByIsProcessedNullOrIsProcessedFalse(pageable);
+
+				if (page.isEmpty()) {
+					log.info("✅ No more pending records found. Exiting loop.");
+					break;
+				}
+
+				log.info("Fetched records size={}", page.getContent().size());
+
+				List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+				for (DcupdtlsGstr9c doc : page.getContent()) {
+
+					CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+
+						try {
+							processSingleDocumentDh(masterData, session, doc, updateQueue);
+							successCount.incrementAndGet();
+
+						} catch (Exception e) {
+							failedCount.incrementAndGet();
+							log.error("Failed documentId={} gstin={}", doc.getDocId(), doc.getGstin(), e);
+
+							updateErrorRecordDw(doc, e.getMessage(), updateQueue);
+						}
+
+					}, executor);
+
+					futures.add(future);
+				}
+
+				// wait for all threads
+				CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+				log.info("Loop completed processed={}", page.getContent().size());
+			}
+
+		} catch (Exception e) {
+			log.error("Bulk processing failed", e);
+		} finally {
+
+			// stop executor
+			executor.shutdown();
+			try {
+				if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+					executor.shutdownNow();
+				}
+			} catch (InterruptedException e) {
+				executor.shutdownNow();
+				Thread.currentThread().interrupt();
+			}
+
+			// 🔥 STOP DB THREAD
+			dbSaverThread.interrupt();
+			try {
+				dbSaverThread.join();
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+		}
+
+		long totalTime = System.currentTimeMillis() - startTime;
+
+		log.info("Completed | success={} | failed={} | time={} ms", successCount.get(), failedCount.get(), totalTime);
+
+		return "Success: " + successCount.get() + ", Failed: " + failedCount.get() + ", Time(ms): " + totalTime;
+	}
+
+	public void processSingleDocumentDh(MasterData masterData, GSTUserSession session, DcupdtlsGstr9c doc,
+			BlockingQueue<DcupdtlsGstr9c> updateQueue) {
+
+		try {
+
+			APIDetails apiDetails = apiDetailsImpl.findByName(Constants.GET_REGISTRATION_DOWNLOAD_DOCUMENT);
+
+			HttpHeaders headers = authenticationHelper.getDefaultHeaders(masterData, session.getAuthToken(),
+					apiDetails.getApiContentType());
+
+			Map<String, String> params = getParamsForRequestDownloadDataEntity(masterData, doc.getDocId(), apiDetails);
+
+			String apiPath = authenticationHelper
+					.getUriWithParam(authenticationHelper.getFullPath(masterData, apiDetails), params);
+
+			GSTCommonResponseBean response = restClient.get(apiPath, GSTCommonResponseBean.class, headers);
+
+			if (response == null || response.getData() == null) {
+				updateErrorRecordDw(doc, "Null response from API", updateQueue);
+				return;
+			}
+
+			byte[] fileBytes = Base64.getDecoder().decode(response.getData());
+
+			String fileNameWithoutExt = buildFileNamedW(doc);
+
+//			if (extension == null) {
+//				updateErrorRecordDw(doc, "Unsupported file type", updateQueue);
+//				return;
+//			}
+
+			// String fileName = fileNameWithoutExt + extension;
+			String fileName = doc.getGstin() + "_" + doc.getDocId() + "_" + doc.getDocNam();
+
+			// String remoteDir = BASE_PATH_DW + "/" + doc.getId();
+
+			String remoteDir = BASE_PATH_DW + "/" + doc.getFp();
+
+			String remotePath = SftpUtil.uploadFileToSftp(fileBytes, remoteDir, fileName);
+
+			updateSuccessRecordDw(doc, remotePath, fileNameWithoutExt, updateQueue);
+
+		} catch (Exception e) {
+			updateErrorRecordDw(doc, e.getMessage(), updateQueue);
+		}
+	}
+
+	public void updateErrorRecordDw(DcupdtlsGstr9c doc, String errorMessage, Queue<DcupdtlsGstr9c> queue) {
+
+		try {
+
+			doc.setIsProcessed(false);
+			doc.setInsertDt(new java.sql.Date(System.currentTimeMillis()));
+
+			queue.add(doc);
+
+		} catch (Exception e) {
+			log.error("Error updating record documentId={}", doc.getDocId(), e);
+		}
+	}
+
+	public void updateSuccessRecordDw(DcupdtlsGstr9c doc, String path, String fileName, Queue<DcupdtlsGstr9c> queue) {
+
+		try {
+			doc.setPath(path);
+			doc.setFileName(fileName);
+			doc.setIsProcessed(true);
+			doc.setInsertDt(new java.sql.Date(System.currentTimeMillis()));
+
+			queue.add(doc);
+
+		} catch (Exception e) {
+			log.error("Error updating record documentId={}", doc.getDocId(), e);
+		}
+	}
+
+	private String buildFileNamedW(DcupdtlsGstr9c doc) {
+
+		return doc.getGstin() + "_" + doc.getDocType() + "_" + doc.getFp() + "_" + doc.getDocId();
+	}
+
+	private Map<String, String> getParamsForRequestDownloadDataEntity(MasterData masterData, String documentId,
+			APIDetails apiDetailsForFileCount) {
+		Map<String, String> params = new HashMap<String, String>();
+		params.put("action", apiDetailsForFileCount.getApiAction());
+		params.put("state_cd", masterData.getStateCd());
+		params.put("docid", documentId);
+		return params;
+
+	}
+
+	// for the exception
+	public String processAlertByDateRange(LocalDateTime currentStartDateTime, LocalDateTime finalEndDateTime)
+			throws UnsupportedEncodingException {
+
+		log.info("▶️ [ALERT PROCESS START]");
+		log.info("Start DateTime : {}", currentStartDateTime);
+		log.info("End DateTime   : {}", finalEndDateTime);
+
+		String lastResponse = null;
+
+		long processStartTime = System.currentTimeMillis();
+
+		while (!currentStartDateTime.isAfter(finalEndDateTime)) {
+
+			LocalDateTime currentEndDateTime = currentStartDateTime.plusHours(1);
+
+			if (currentEndDateTime.isAfter(finalEndDateTime)) {
+				currentEndDateTime = finalEndDateTime;
+			}
+
+			String formattedStartDateTime = currentStartDateTime.format(ALERT_FORMATTER);
+
+			String formattedEndDateTime = currentEndDateTime.format(ALERT_FORMATTER);
+
+			try {
+
+				String year = String.valueOf(currentStartDateTime.getYear());
+
+				log.info("📡 Calling ALERT API | start={} | end={}", formattedStartDateTime, formattedEndDateTime);
+
+				lastResponse = getAlertListByStartAndEndTime(USERNAME, formattedStartDateTime, formattedEndDateTime,
+						year);
+
+				String status = (lastResponse != null && lastResponse.contains("SUCCESS")) ? "FOUND" : "NOT_FOUND";
+
+				log.info("💾 ALERT processed successfully | start={} | status={}", formattedStartDateTime, status);
+
+			} catch (Exception ex) {
+
+				log.error("❌ Error processing ALERT | startTime={}", formattedStartDateTime, ex);
+			}
+
+			currentStartDateTime = currentEndDateTime;
+		}
+
+		long totalTime = System.currentTimeMillis() - processStartTime;
+
+		log.info("🏁 [ALERT PROCESS END] totalTime={} ms", totalTime);
+
+		return lastResponse;
+	}
+
+	public String retryAlertException() {
+
+		log.info("▶️ [RETRY ALERT EXCEPTION START]");
+
+		List<AlertRegistration> exceptionRecords = alertRegistrationRepository.getExceptionAlerts();
+
+		if (exceptionRecords == null || exceptionRecords.isEmpty()) {
+
+			log.info("No exception records found");
+
+			return "No exception records found";
+		}
+
+		int successCount = 0;
+		int failedCount = 0;
+
+		for (AlertRegistration alert : exceptionRecords) {
+
+			try {
+
+				boolean processed = retrySingleAlertException(alert);
+
+				if (processed) {
+					successCount++;
+				} else {
+					failedCount++;
+				}
+
+			} catch (Exception ex) {
+
+				failedCount++;
+
+				log.error("Error processing alertId={}", alert.getAlertId(), ex);
+			}
+		}
+
+		log.info("🏁 [RETRY ALERT EXCEPTION END] Success={} Failed={}", successCount, failedCount);
+
+		return "Completed. Success=" + successCount + ", Failed=" + failedCount;
+	}
+
+	private boolean retrySingleAlertException(AlertRegistration existingAlert) {
+
+		try {
+
+			log.info("Processing alertId={}", existingAlert.getAlertId());
+
+			MasterData masterData = masterDataService.getMasterdatabyName(USERNAME);
+
+			if (masterData == null) {
+
+				log.error("MasterData not found");
+
+				return false;
+			}
+
+			GSTUserSession session = gstUserSessionServices.getUserSessionsByName(USERNAME);
+
+			if (session == null) {
+
+				log.error("Session not found");
+
+				return false;
+			}
+
+			String startDateTime = existingAlert.getStartTm().format(ALERT_FORMATTER);
+
+			String endDateTime = existingAlert.getEndTm().format(ALERT_FORMATTER);
+
+			String year = existingAlert.getYear();
+
+			return retryAlertApiCall(existingAlert, masterData, startDateTime, endDateTime, session, year);
+
+		} catch (Exception ex) {
+
+			log.error("Exception while retrying alertId={}", existingAlert.getAlertId(), ex);
+
+			return false;
+		}
+	}
+
+	private boolean retryAlertApiCall(AlertRegistration existingAlert, MasterData masterData, String startDateTime,
+			String endDateTime, GSTUserSession gstUserSessions, String caseType) {
+
+		try {
+
+			APIDetails apiDetails = apiDetailsImpl.findByName(Constants.GET_RETURN_FILE_DETAIL_ALERT_lIST);
+
+			if (apiDetails == null) {
+
+				log.error("API Details not found");
+
+				return false;
+			}
+
+			HttpHeaders headers = authenticationHelper.getDefaultHeaders(masterData, gstUserSessions.getAuthToken(),
+					apiDetails.getApiContentType());
+
+			Map<String, String> params = getParamsForGetReturnFileCountAlert(apiDetails, masterData, startDateTime,
+					endDateTime, caseType);
+
+			String apiPath = authenticationHelper
+					.getUriWithParam(authenticationHelper.getFullPath(masterData, apiDetails), params);
+
+			GSTCommonResponseBean response = restClient.get(apiPath, GSTCommonResponseBean.class, headers);
+
+			if (response == null) {
+
+				log.error("Null response");
+
+				return false;
+			}
+
+			if (!"1".equals(response.getStatus_cd())) {
+
+				log.error("API failed");
+
+				return false;
+			}
+
+			if (response.getData() == null || response.getData().trim().isEmpty()) {
+
+				log.warn("Empty response data");
+
+				return false;
+			}
+
+			byte[] decodedData = Base64.getDecoder().decode(response.getData());
+
+			String decodedJson = new String(decodedData, StandardCharsets.UTF_8);
+
+			JsonNode jsonNode = objectMapper.readTree(decodedJson);
+
+			Long count = jsonNode.path("dayCount").asLong();
+
+			// =====================================
+			// UPDATE EXISTING RECORD
+			// =====================================
+
+			existingAlert.setIsSuccess(true);
+
+			existingAlert.setStatus(count > 0 ? "FOUND" : "NOT_FOUND");
+
+			existingAlert.setDayCount(count);
+
+			existingAlert.setJsonData(jsonNode.toString());
+
+			existingAlert.setMsg("CRN Count received : " + count);
+
+			existingAlert.setUpdatedDateTime(Instant.now());
+
+			AlertRegistration updatedAlert = alertRegistrationRepository.save(existingAlert);
+
+			log.info("Updated alertId={}", updatedAlert.getAlertId());
+
+			// =====================================
+			// SAVE DETAILS
+			// =====================================
+
+			JsonNode alertsArray = jsonNode.path("alerts");
+
+			if (alertsArray.isArray() && alertsArray.size() > 0) {
+
+				List<AlertDetailsRegistration> detailList = new ArrayList<>();
+
+				for (JsonNode alertNode : alertsArray) {
+
+					AlertDetailsRegistration detail = new AlertDetailsRegistration();
+
+					detail.setAlertId(updatedAlert.getAlertId());
+
+					detail.setDayCount(jsonNode.path("dayCount").asInt());
+
+					detail.setPartitionFy(updatedAlert.getPartitionFy());
+
+					detail.setAlertCd(alertNode.path("alertCd").asText(null));
+
+					detail.setEntityId(alertNode.path("entityId").asText(null));
+
+					detail.setEntityTyp(alertNode.path("entityTyp").asText(null));
+
+					String insertTm = alertNode.path("insert_tm").asText(null);
+
+					if (insertTm != null && !insertTm.isEmpty()) {
+
+						detail.setInsertTm(
+								LocalDateTime.parse(insertTm, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+					}
+
+					detailList.add(detail);
+				}
+
+				alertDetailsRegistrationRepository.saveAll(detailList);
+
+				log.info("Saved detail count={}", detailList.size());
+			}
+
+			return true;
+
+		} catch (Exception ex) {
+
+			log.error("Retry failed for alertId={}", existingAlert.getAlertId(), ex);
+
+			return false;
+		}
 	}
 
 }

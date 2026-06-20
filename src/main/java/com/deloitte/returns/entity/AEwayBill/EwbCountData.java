@@ -1,7 +1,8 @@
 package com.deloitte.returns.entity.AEwayBill;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.sql.Timestamp;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -15,20 +16,30 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "count_data", schema = "eway_bill_not")
+@Table(name = "\"EWBFileCount\"", schema = "filecounter")
 public class EwbCountData {
 
-	@JsonIgnore
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
+	@Column(name = "dt")
 	private String ewbDt;
+
+	@Column(name = "ty")
 	private String ewbCategory;
+
 	private int genFileCnt;
-	private int totalRecords;
-	private String urlForData;
 
 	private String errorDesc;
+
+	private Timestamp insertDt;
+
+	private Boolean isSuccess;
+
+	private String msg;
+
+	@Column(name = "counter_attempt") //
+	private int counterAttempt;
 
 }

@@ -64,7 +64,7 @@ public class CrnDetailCommon {
 
 	@Column(name = "is_processed")
 	private Boolean isProcessed;
-	
+
 	@Column(name = "is_future")
 	private Boolean isFuture;
 
@@ -84,6 +84,9 @@ public class CrnDetailCommon {
 	@Column(name = "type_registration_msg") // entitytyp
 	private String typeRegistrationMsg;
 
+	@Column(name = "counter_attempt") //
+	private int counterAttempt;
+
 	@PrePersist
 	protected void onCreate() {
 		Instant now = Instant.now();
@@ -95,4 +98,5 @@ public class CrnDetailCommon {
 	protected void onUpdate() {
 		this.updatedDateTime = Instant.now();
 	}
+
 }

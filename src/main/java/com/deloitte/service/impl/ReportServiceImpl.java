@@ -1,0 +1,291 @@
+package com.deloitte.service.impl;
+
+import java.util.List;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+
+import com.deloitte.common.bean.LastUpdateDTO;
+import com.deloitte.common.bean.ReportRequestDTO;
+import com.deloitte.common.bean.ReportResponseDTO;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class ReportServiceImpl {
+
+	private final JdbcTemplate jdbcTemplate;
+
+	public List<ReportResponseDTO> generateReport(ReportRequestDTO request) {
+
+		if ("PARTA".equalsIgnoreCase(request.getTy()) || "PARTB".equalsIgnoreCase(request.getTy())) {
+
+			return generateEwbReport(request);
+		}
+
+		return generateReturnReport(request);
+	}
+
+	public List<ReportResponseDTO> generateReturnReport(ReportRequestDTO request) {
+
+		long startTime = System.currentTimeMillis();
+
+		String jsonTable = getJsonTable(request.getTy());
+
+		log.info("====================================================");
+		log.info("REPORT GENERATION STARTED");
+		log.info("TY         : {}", request.getTy());
+		log.info("FROM DATE  : {}", request.getFromDate());
+		log.info("TO DATE    : {}", request.getToDate());
+		log.info("JSON TABLE : {}", jsonTable);
+		log.info("====================================================");
+
+		String sql = """
+				SELECT
+				    t1.dt,
+				    t1.num_files,
+				    t1.file_num,
+				    t1.num_filescnt,
+				    t3.dt AS dt2,
+				    t3.filenumber,
+				    t3.jsoncount
+				FROM
+				(
+				    SELECT
+				        A.dt,
+				        A.num_files,
+				        B.file_num,
+				        B.cnt AS num_filescnt
+				    FROM filecounter."ReturnFileCount" A
+				    LEFT JOIN filecounter."ReturnFileDetail" B
+				        ON A."ReturnFileCountId" = B."ReturnFileCountId"
+				    WHERE A.ty = ?
+				      AND A.dt BETWEEN ? AND ?
+				      AND A."IsSuccess" = '1'
+				) t1
+				LEFT JOIN
+				(
+				    SELECT
+				        dt,
+				        filenumber,
+				        COUNT(1) AS jsoncount
+				    FROM %s
+				    WHERE dt BETWEEN ? AND ?
+				    GROUP BY dt, filenumber
+				) t3
+				ON t1.dt = t3.dt
+				AND t1.file_num = t3.filenumber
+				ORDER BY t1.dt DESC, t1.file_num DESC
+				""".formatted(jsonTable);
+
+		String logQuery = sql.replaceFirst("\\?", "'" + request.getTy() + "'")
+				.replaceFirst("\\?", "'" + request.getFromDate() + "'")
+				.replaceFirst("\\?", "'" + request.getToDate() + "'")
+				.replaceFirst("\\?", "'" + request.getFromDate() + "'")
+				.replaceFirst("\\?", "'" + request.getToDate() + "'");
+
+		log.info("FINAL QUERY:\n{}", logQuery);
+
+		try {
+
+			List<ReportResponseDTO> result = jdbcTemplate.query(sql, new Object[] { request.getTy(),
+					request.getFromDate(), request.getToDate(), request.getFromDate(), request.getToDate() },
+					(rs, rowNum) -> {
+
+						ReportResponseDTO dto = new ReportResponseDTO();
+
+						dto.setDt(rs.getDate("dt") != null ? rs.getDate("dt").toLocalDate() : null);
+
+						dto.setNumFiles(rs.getObject("num_files", Integer.class));
+
+						dto.setFileNum(rs.getObject("file_num", Integer.class));
+
+						dto.setNumFilesCnt(rs.getObject("num_filescnt", Integer.class));
+
+						dto.setDt2(rs.getDate("dt2") != null ? rs.getDate("dt2").toLocalDate() : null);
+
+						dto.setFileNumber(rs.getObject("filenumber", Integer.class));
+
+						dto.setJsonCount(rs.getObject("jsoncount", Long.class));
+
+						return dto;
+					});
+
+			log.info("====================================================");
+			log.info("REPORT GENERATED SUCCESSFULLY");
+			log.info("TOTAL RECORDS : {}", result.size());
+			log.info("TIME TAKEN    : {} ms", (System.currentTimeMillis() - startTime));
+			log.info("====================================================");
+
+			return result;
+
+		} catch (Exception ex) {
+
+			log.error("Error while generating report", ex);
+
+			throw new RuntimeException("Unable to generate report. Please check logs.", ex);
+		}
+	}
+
+	private String getJsonTable(String ty) {
+
+		if (ty == null) {
+			throw new IllegalArgumentException("TY cannot be null");
+		}
+
+		return switch (ty.toUpperCase()) {
+
+		case "R1" -> "log.r1_initial_json";
+
+		case "R1A" -> "log.r1a_initial_json";
+
+		case "R2B" -> "log.r2b_initial_json";
+
+		case "R3B" -> "log.r3b_initial_json";
+
+		case "R4" -> "log.r4_initial_json";
+
+		case "R5" -> "log.r5_initial_json";
+
+		case "R6" -> "log.r6_initial_json";
+
+		case "R7" -> "log.r7_initial_json";
+
+		case "R8" -> "log.r8_initial_json";
+
+		case "R9" -> "log.r9_initial_json";
+
+		case "R9A" -> "log.r9a_initial_json";
+
+		case "R9C" -> "log.r9c_initial_json";
+
+		case "R98A" -> "log.r98a_initial_json";
+
+		case "R10" -> "log.r10_initial_json";
+
+		case "R11" -> "log.r11_initial_json";
+
+		case "PAYMENT" -> "log.payment_initial_json";
+
+		case "CM8" -> "log.cmp08_initial_json";
+
+		case "PARTA" -> "log.ewb_parta_initial_json";
+
+		case "PARTB" -> "log.ewb_partb_initial_json";
+
+		default -> throw new IllegalArgumentException("Unsupported TY : " + ty);
+		};
+	}
+
+	private List<ReportResponseDTO> generateEwbReport(ReportRequestDTO request) {
+
+		long startTime = System.currentTimeMillis();
+
+		String jsonTable = "PARTA".equalsIgnoreCase(request.getTy()) ? "log.ewb_parta_initial_json"
+				: "log.ewb_partb_initial_json";
+
+		String sql = """
+				SELECT
+				    t1.dt,
+				    t1.gen_file_cnt,
+				    t1.file_num,
+				    t1.num_filescnt,
+				    t3.dt AS dt2,
+				    t3.file_number,
+				    t3.cntt
+				FROM
+				(
+				    SELECT
+				        to_date(A.dt,'DD-MM-YYYY') as dt,
+				        A.gen_file_cnt,
+				        B.file_num,
+				        B.total_records as num_filescnt
+				    FROM filecounter.ewb_count_data A
+				    LEFT JOIN filecounter.ewb_file_detail B
+				        ON A.id = B.return_file_count_id
+				    WHERE
+				        to_date(A.dt,'DD-MM-YYYY') BETWEEN ? AND ?
+				        AND A.is_success = true
+				        AND A.ty = ?
+				) t1
+				LEFT JOIN
+				(
+				    SELECT
+				        to_date(dt,'DD-MM-YYYY') as dt,
+				        file_number,
+				        count(ewb->'EwbNo') as cntt
+				    FROM %s
+				    LEFT JOIN LATERAL
+				        jsonb_array_elements(json_data->'ewb') as ewb(value)
+				        ON true
+				    WHERE
+				        to_date(dt,'DD-MM-YYYY') BETWEEN ? AND ?
+				    GROUP BY
+				        to_date(dt,'DD-MM-YYYY'),
+				        file_number
+				) t3
+				ON t1.dt = t3.dt
+				AND t1.file_num = t3.file_number
+				ORDER BY t1.dt DESC, t1.file_num DESC
+				""".formatted(jsonTable);
+
+		String logQuery = sql.replaceFirst("\\?", "'" + request.getFromDate() + "'")
+				.replaceFirst("\\?", "'" + request.getToDate() + "'").replaceFirst("\\?", "'" + request.getTy() + "'")
+				.replaceFirst("\\?", "'" + request.getFromDate() + "'")
+				.replaceFirst("\\?", "'" + request.getToDate() + "'");
+
+		log.info("PARTA/PARTB QUERY:\n{}", logQuery);
+
+		List<ReportResponseDTO> result = jdbcTemplate.query(sql, new Object[] { request.getFromDate(),
+				request.getToDate(), request.getTy(), request.getFromDate(), request.getToDate() }, (rs, rowNum) -> {
+
+					ReportResponseDTO dto = new ReportResponseDTO();
+
+					dto.setDt(rs.getDate("dt") != null ? rs.getDate("dt").toLocalDate() : null);
+
+					dto.setNumFiles(rs.getObject("gen_file_cnt", Integer.class));
+
+					dto.setFileNum(rs.getObject("file_num", Integer.class));
+
+					dto.setNumFilesCnt(rs.getObject("num_filescnt", Integer.class));
+
+					dto.setDt2(rs.getDate("dt2") != null ? rs.getDate("dt2").toLocalDate() : null);
+
+					dto.setFileNumber(rs.getObject("file_number", Integer.class));
+
+					dto.setJsonCount(rs.getObject("cntt", Long.class));
+
+					return dto;
+				});
+
+		log.info("PARTA/PARTB Records Found={} Time Taken={} ms", result.size(),
+				(System.currentTimeMillis() - startTime));
+
+		return result;
+	}
+
+	public List<LastUpdateDTO> getLastUpdateReport() {
+
+		String sql = """
+				select
+				    ty,
+				    max(dt) as max_dt
+				from filecounter."ReturnFileCount"
+				group by ty
+				order by ty
+				""";
+
+		return jdbcTemplate.query(sql,
+
+				(rs, rowNum) -> new LastUpdateDTO(
+
+						rs.getString("ty"),
+
+						rs.getDate("max_dt").toLocalDate()
+
+				));
+	}
+}

@@ -41,7 +41,7 @@ import lombok.extern.log4j.Log4j2;
 @Log4j2
 public class CommonCrnServicePreImpl {
 
-	private static final int PAGE_SIZE = 500;
+	private static final int PAGE_SIZE = 200;
 	private static final int BATCH_SIZE = 200;
 
 	private static final String USERNAME = "GSTG2G18";
@@ -94,6 +94,9 @@ public class CommonCrnServicePreImpl {
 		// Refund
 		case "RFUND":
 			return Constants.GET_RETURN_FILE_DETAIL_REFUND_DATA;
+			
+		case "AMYDT":
+			return Constants.GET_RETURN_FILE_DETAIL_AMYDT_DATA;
 
 		// Recovery
 		case "RCMOR":
@@ -155,6 +158,9 @@ public class CommonCrnServicePreImpl {
 
 		case "APPEL":
 			return getParamsForGetReturnFileDetailsAPPEL(statecd, crn);
+			
+		case "AMYDT": // added
+			return getParamsForGetReturnFileDetailsAMYDT(statecd, crn);
 
 // Refund
 		case "RFUND": // corrected from Rfund
@@ -199,6 +205,31 @@ public class CommonCrnServicePreImpl {
 		params.put("crn", crn);
 		return params;
 	}
+	
+	private Map<String, String> getParamsForGetReturnFileDetailsAMYDT(String statecd, String crn) {//Adjudication-Get Case Data-MFY
+		Map<String, String> params = new HashMap<String, String>();
+		params.put("action", "MFYGETCASE");
+		params.put("state_cd", statecd);
+		params.put("crn", crn);
+		return params;
+	}
+	
+//	private Map<String, String> getParamsForGetReturnFileDetailsAMYDT(String statecd, String crn) {//Adjudication-Get Case Data-Reply-MFY
+//		Map<String, String> params = new HashMap<String, String>();
+//		params.put("action", "MFYREPLY");
+//		params.put("state_cd", statecd);
+//		params.put("crn", crn);
+//		return params;
+//	}
+//	
+//	private Map<String, String> getParamsForGetReturnFileDetailsAMYDT(String statecd, String crn) {//Adjudication-Get Case Data-Reply-MFY
+//		Map<String, String> params = new HashMap<String, String>();
+//		params.put("action", "MFYVOLPAYMENT");
+//		params.put("state_cd", statecd);
+//		params.put("crn", crn);
+//		return params;
+//	}
+
 
 	private Map<String, String> getParamsForGetReturnFileDetailsAPPEL(String statecd, String crn) {
 		Map<String, String> params = new HashMap<String, String>();
@@ -321,12 +352,12 @@ public class CommonCrnServicePreImpl {
 
 				Pageable pageable = PageRequest.of(pageNo, PAGE_SIZE);
 
-				// Page<CrnDetailCommon> page =
-				// crnDetailCommonRepository.findPendingRecords(pageable); //write the
-				// date476294
-				Page<CrnDetailCommon> page = crnDetailCommonRepository.findPendingRecordsAfterId(77732L, pageable);
-				// Page<CrnDetailCommon> page =
-				// crnDetailCommonRepository.findPendingRecordsAfterId(77820L, pageable);
+				 Page<CrnDetailCommon> page =
+				 crnDetailCommonRepository.findPendingRecordsAfterId(77732L, pageable);
+
+//				Page<CrnDetailCommon> page = crnDetailCommonRepository
+//						.findByIdReturnCountCrnJsonGreaterThanAndIsSuccessFalseAndIsFutureFalseAndIsProcessedFalseAndCounterAttemptLessThanOrderByIdDesc(
+//								77732L, 3, pageable);
 
 				// =====================================================
 				// PAGE LOGGING
@@ -376,8 +407,8 @@ public class CommonCrnServicePreImpl {
 					String crn = record.getCrn();
 
 					String caseType = record.getOriginalCaseTyp();
-					
-					String apiPath=null;
+
+					String apiPath = null;
 					try {
 
 						log.info("--------------------------------------------------");
@@ -389,14 +420,15 @@ public class CommonCrnServicePreImpl {
 						// =================================================
 						// STEP 1 : GET API CONSTANT
 						// =================================================
-						
+
 						String apiConstant = getApiConstantByCaseType(caseType);
-				
+
 						if (apiConstant == null) {
 
 							log.warn("⚠️ API Constant not developed | CRN={} | caseType={}", crn, caseType);
 
 							record.setIsSuccess(false);
+							record.setCounterAttempt(record.getCounterAttempt() + 1);
 							record.setIsFuture(true);
 							record.setIsProcessed(false);
 
@@ -423,7 +455,7 @@ public class CommonCrnServicePreImpl {
 							log.warn("⚠️ Params mapping missing | CRN={} | caseType={}", crn, caseType);
 
 							record.setIsSuccess(false);
-
+							record.setCounterAttempt(record.getCounterAttempt() + 1);
 							record.setIsProcessed(false);
 
 							// =========================================
@@ -450,7 +482,7 @@ public class CommonCrnServicePreImpl {
 							log.warn("⚠️ API Details missing | CRN={} | apiConstant={}", crn, apiConstant);
 
 							record.setIsSuccess(false);
-
+							record.setCounterAttempt(record.getCounterAttempt() + 1);
 							record.setIsProcessed(false);
 
 							// =========================================
@@ -482,13 +514,11 @@ public class CommonCrnServicePreImpl {
 						GSTCommonResponseBean response = restClient.get(apiPath, GSTCommonResponseBean.class, headers);
 
 						JsonNode responseJson;
-						//check
+						// check
 //						if (caseType.equalsIgnoreCase("APPEL") && response != null
 //								&& "1".equals(response.getStatus_cd())) {
 //							System.out.println("APPEL");
 //						}
-
-						
 
 						// =================================================s
 						// SUCCESS RESPONSE
@@ -531,9 +561,11 @@ public class CommonCrnServicePreImpl {
 							record.setJsonData(responseJson);
 
 							record.setIsSuccess(false);
+							record.setJsonData(responseJson);
+							record.setCounterAttempt(record.getCounterAttempt() + 1);
 
 							record.setIsProcessed(false);
-							if(record.getOriginalCaseTyp().equalsIgnoreCase("RCMOR")) {
+							if (record.getOriginalCaseTyp().equalsIgnoreCase("RCMOR")) {
 								record.setIsFuture(true);
 							}
 
@@ -563,6 +595,7 @@ public class CommonCrnServicePreImpl {
 
 						record.setIsSuccess(false);
 						record.setIsFuture(true);
+						record.setCounterAttempt(record.getCounterAttempt() + 1);
 						record.setUrl(apiPath);
 						record.setIsProcessed(false);
 

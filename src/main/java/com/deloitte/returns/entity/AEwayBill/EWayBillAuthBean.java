@@ -1,10 +1,5 @@
 package com.deloitte.returns.entity.AEwayBill;
 
-import java.sql.Timestamp;
-
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -21,7 +16,6 @@ import lombok.NoArgsConstructor;
 @Table(name = "auth", schema = "eway_bill_not")
 public class EWayBillAuthBean {
 
-	@JsonIgnore
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
@@ -36,14 +30,14 @@ public class EWayBillAuthBean {
 	private byte[] appKeyDb;
 
 	private String appUrl;
-
-	// 🔥 NEW FIELDS (Important)
-	@Column(name = "token_expiry")
-	private Timestamp tokenExpiry;
-
-	@Column(name = "created_at")
-	private Timestamp createdAt;
-
-	@Column(name = "updated_at")
-	private Timestamp updatedAt;
 }
+
+//	// 🔥 NEW FIELDS (Important)
+//	@Column(name = "token_expiry")
+//	private Timestamp tokenExpiry;
+//
+//	@Column(name = "created_at")
+//	private Timestamp createdAt;
+//
+//	@Column(name = "updated_at")
+//	private Timestamp updatedAt;

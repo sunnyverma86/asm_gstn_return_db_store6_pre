@@ -10,8 +10,10 @@ import com.deloitte.returns.repository.ReconRepository;
 import com.deloitte.returns.repository.RegDocumentsRepository;
 import com.deloitte.returns.repository.RegisDcupdtlsTestingRepository;
 import com.deloitte.returns.repository.RentActivePpbzdtlsRepository;
+import com.deloitte.returns.repository.ReturnComparisonReportGstinRepository;
 import com.deloitte.returns.repository.TdsTcsRegistrationRepository;
 import com.deloitte.returns.repository.common.AlertJsonRepository;
+import com.deloitte.returns.repository.common.DcupdtlsGstr9cRepository;
 import com.deloitte.returns.repository.common.GstinRepository;
 import com.deloitte.returns.repository.common.LedgerDataJsonFileRepository;
 import com.deloitte.returns.repository.common.RegistrationDataJsonFileRepository;
@@ -39,8 +41,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class CommonServiceImplAbs {
 
-//	@Autowired
-//	protected CommonAlertDateRepository commonAlertDateRepository;
+	@Autowired
+	protected DcupdtlsGstr9cRepository dcupdtlsGstr9cRepository;
 
 	@Autowired
 	protected ArnHandlerForRegistration arnHandlerForRegistration;
@@ -65,6 +67,9 @@ public class CommonServiceImplAbs {
 
 	@Autowired
 	protected RentActivePpbzdtlsRepository RentActivePpbzdtlsRepository;
+
+	@Autowired
+	protected ReturnComparisonReportGstinRepository returnComparisonReportGstinRepository;
 
 	@Autowired
 	protected RegistrationServiceImpl registrationServiceImpl;

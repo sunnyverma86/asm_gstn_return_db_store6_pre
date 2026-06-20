@@ -5,6 +5,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -17,15 +18,21 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.imageio.ImageIO;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 
@@ -34,6 +41,9 @@ import com.deloitte.common.constant.Constants;
 import com.deloitte.common.entity.APIDetails;
 import com.deloitte.common.entity.GSTUserSession;
 import com.deloitte.common.entity.MasterData;
+import com.deloitte.returns.entity.ReturnComparisonReportGstin;
+import com.deloitte.returns.entity.ReturnComparisonReportGstinJson;
+import com.deloitte.returns.entity.DownloadDocument.DcupdtlsGstr9c;
 import com.deloitte.returns.entity.DownloadDocument.FileNameDocument;
 import com.deloitte.returns.entity.DownloadDocument.RegisDcupdtlsTesting;
 import com.deloitte.returns.entity.DownloadDocument.RegistrationDownloadDocument;
@@ -42,6 +52,8 @@ import com.deloitte.returns.entity.registration.RentActivePpbzdtls;
 import com.deloitte.returns.repository.RegDocumentsRepository;
 import com.deloitte.returns.repository.RegisDcupdtlsRepository;
 import com.deloitte.returns.repository.RegistrationDownloadDocumentRepository;
+import com.deloitte.returns.repository.ReturnComparisonReportGstinJsonRepository;
+import com.deloitte.returns.repository.ReturnComparisonReportGstinRepository;
 import com.deloitte.returns.repositoryCommon.FileNameDocumentRepository;
 import com.deloitte.returns.service.AuthenticationHelper;
 import com.deloitte.returns.service.GstUserSessionServices;
@@ -49,6 +61,7 @@ import com.deloitte.service.helper.REST.call.RestClientHelper;
 import com.deloitte.service.support.AESEncryption;
 import com.deloitte.service.utility.SftpUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -96,6 +109,12 @@ public class RegistrationServiceImpl {
 
 	@Autowired
 	private RegDocumentsRepository regDocumentsRepository;
+
+	@Autowired
+	private ReturnComparisonReportGstinJsonRepository returnComparisonReportGstinJsonRepository;
+
+	@Autowired
+	private ReturnComparisonReportGstinRepository returnComparisonReportGstinRepository;
 
 	private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -522,6 +541,15 @@ public class RegistrationServiceImpl {
 
 	}
 
+	private Map<String, String> getParamsForRequestGetComparisonReport(String gstin, String year) {
+		Map<String, String> params = new HashMap<String, String>();
+		params.put("action", "COMPREPORT");
+		params.put("fy", year);
+		params.put("gstin", gstin);
+		return params;
+
+	}
+
 	private String getFileName(String fullPath) {
 		return Paths.get(fullPath).getFileName().toString();
 	}
@@ -764,8 +792,6 @@ public class RegistrationServiceImpl {
 		return doc.getGstin() + "_" + doc.getRegSection() + "_" + doc.getSectionType() + "_" + doc.getYy() + doc.getMm()
 				+ doc.getDd() + "_" + doc.getDocumentId();
 	}
-	
-	
 
 	private void createFolderIfNeeded(String folderPath) throws IOException {
 
@@ -947,7 +973,7 @@ public class RegistrationServiceImpl {
 			Queue<RentActivePpbzdtls> queue) {
 
 		try {
-			doc.setPath(path);	
+			doc.setPath(path);
 			doc.setFileName(fileName);
 			doc.setIsProcessed(true);
 			doc.setInsertDt(new java.sql.Date(System.currentTimeMillis()));
@@ -972,10 +998,630 @@ public class RegistrationServiceImpl {
 			log.error("Error updating record documentId={}", doc.getDocumentId(), e);
 		}
 	}
-	
+
 	private String buildFileNameFew(RentActivePpbzdtls doc) {
 
 		return doc.getGstin() + "_" + doc.getRegSection() + "_" + doc.getSectionType() + "_" + doc.getDocumentId();
+	}
+
+//	// GET-COMPARISION-REPORT
+//	public void processSingleSingleGstin(MasterData masterData, GSTUserSession session, ReturnComparisonReportGstin doc,
+//			BlockingQueue<ReturnComparisonReportGstin> updateQueue) {
+//
+//		try {
+//
+//			log.info("Processing GSTIN={} FY={}", doc.getGstin(), doc.getFy());
+//
+//			APIDetails apiDetails = apiDetailsImpl.findByName(Constants.GET_COMPARISION_REPORT);
+//
+//			HttpHeaders headers = authenticationHelper.getDefaultHeaders(masterData, session.getAuthToken(),
+//					apiDetails.getApiContentType());
+//
+//			Map<String, String> params = getParamsForRequestGetComparisonReport(doc.getGstin(), doc.getFy());
+//
+//			String apiPath = authenticationHelper
+//					.getUriWithParam(authenticationHelper.getFullPath(masterData, apiDetails), params);
+//
+//			log.info("Calling API URL={}", apiPath);
+//
+//			GSTCommonResponseBean response = restClient.get(apiPath, GSTCommonResponseBean.class, headers);
+//
+//			// =====================================================
+//			// NULL CHECK
+//			// =====================================================
+//
+//			if (response == null || response.getData() == null || response.getData().isBlank()) {
+//
+//				log.error("Empty response received GSTIN={} FY={}", doc.getGstin(), doc.getFy());
+//
+//				ReturnComparisonReportGstinJson jsonEntity = new ReturnComparisonReportGstinJson();
+//
+//				jsonEntity.setGstin(doc.getGstin());
+//				jsonEntity.setFy(doc.getFy());
+//				jsonEntity.setCounterAttempt(doc.getCounterAttempt());
+//				jsonEntity.setIsProcessed(false);
+//
+//				returnComparisonReportGstinJsonRepository.save(jsonEntity);
+//
+//				updateErrorRecordGetComparisonReport(doc, updateQueue);
+//				return;
+//			}
+//
+//			// =====================================================
+//			// BASE64 DECODE
+//			// =====================================================
+//
+//			byte[] decodedBytes = Base64.getDecoder().decode(response.getData());
+//
+//			String decodedJson = new String(decodedBytes, StandardCharsets.UTF_8);
+//
+//			log.info("Decoded JSON received GSTIN={} FY={}", doc.getGstin(), doc.getFy());
+//
+//			// =====================================================
+//			// CONVERT STRING -> JSON NODE
+//			// =====================================================
+//
+//			JsonNode jsonNode = MAPPER.readTree(decodedJson);
+//
+//			// =====================================================
+//			// SAVE JSON TABLE
+//			// =====================================================
+//
+//			ReturnComparisonReportGstinJson jsonEntity = new ReturnComparisonReportGstinJson();
+//
+//			jsonEntity.setGstin(doc.getGstin());
+//			jsonEntity.setFy(doc.getFy());
+//			jsonEntity.setJsonData(jsonNode);
+//			jsonEntity.setCounterAttempt(doc.getCounterAttempt());
+//			jsonEntity.setIsProcessed(true);
+//
+//			returnComparisonReportGstinJsonRepository.save(jsonEntity);
+//
+//			log.info("JSON saved successfully GSTIN={} FY={}", doc.getGstin(), doc.getFy());
+//
+//			// =====================================================
+//			// UPDATE MAIN TABLE
+//			// =====================================================
+//
+//			updateSuccessRecordGetComparisonReport(doc, updateQueue);
+//
+//		} catch (Exception e) {
+//
+//			log.error("Error processing GSTIN={} FY={}", doc.getGstin(), doc.getFy(), e);
+//
+//			updateErrorRecordGetComparisonReport(doc, updateQueue);
+//		}
+//	}
+//
+//	// ================================================
+//	// SUCCESS UPDATE METHOD
+//	// ================================================
+//
+//	public void updateSuccessRecordGetComparisonReport(ReturnComparisonReportGstin doc,
+//			Queue<ReturnComparisonReportGstin> queue) {
+//
+//		try {
+//
+//			doc.setIsProcessed(true);
+//
+//			queue.add(doc);
+//
+//			log.info("Marked SUCCESS GSTIN={} FY={}", doc.getGstin(), doc.getFy());
+//
+//		} catch (Exception e) {
+//
+//			log.error("Error updating success record GSTIN={}", doc.getGstin(), e);
+//		}
+//	}
+//
+//	// ================================================
+//	// ERROR UPDATE METHOD
+//	// ================================================
+//
+//	public void updateErrorRecordGetComparisonReport(ReturnComparisonReportGstin doc,
+//			Queue<ReturnComparisonReportGstin> queue) {
+//
+//		try {
+//
+//			doc.setIsProcessed(false);
+//
+//			doc.setCounterAttempt(doc.getCounterAttempt() + 1);
+//
+//			queue.add(doc);
+//
+//			log.error("Marked FAILED GSTIN={} FY={} Attempt={}", doc.getGstin(), doc.getFy(), doc.getCounterAttempt());
+//
+//		} catch (Exception e) {
+//
+//			log.error("Error updating record GSTIN={}", doc.getGstin(), e);
+//		}
+//	}
+
+	// =========================================================
+	// MAIN PROCESS
+	// =========================================================
+
+	public void processSingleSingleGstin(MasterData masterData, GSTUserSession session,
+			ReturnComparisonReportGstin doc) {
+
+		try {
+
+			log.info("------------------------------------------------");
+			log.info("Processing GSTIN={} FY={}", doc.getGstin(), doc.getFy());
+
+			// =========================================
+			// MARK PROCESSING
+			// =========================================
+
+			doc.setIsProcessing(true);
+
+			returnComparisonReportGstinRepository.save(doc);
+
+			log.info("Marked processing GSTIN={} FY={}", doc.getGstin(), doc.getFy());
+
+			// =========================================
+			// API DETAILS
+			// =========================================
+
+			APIDetails apiDetails = apiDetailsImpl.findByName(Constants.GET_COMPARISION_REPORT);
+
+			HttpHeaders headers = authenticationHelper.getDefaultHeaders(masterData, session.getAuthToken(),
+					apiDetails.getApiContentType());
+
+			Map<String, String> params = Map.of("gstin", doc.getGstin(), "action", "COMPREPORT", "year", doc.getFy());
+
+			String apiPath = authenticationHelper
+					.getUriWithParam(authenticationHelper.getFullPath(masterData, apiDetails), params);
+
+			log.info("Calling API={}", apiPath);
+
+			// =========================================
+			// API CALL
+			// =========================================
+
+			GSTCommonResponseBean response = restClient.get(apiPath, GSTCommonResponseBean.class, headers);
+
+			// =========================================
+			// EMPTY RESPONSE
+			// =========================================
+
+			if (response == null || response.getData() == null || response.getData().isBlank()) {
+
+				log.error("Empty response GSTIN={} FY={}", doc.getGstin(), doc.getFy());
+
+				updateErrorRecordGetComparisonReport(doc);
+
+				return;
+			}
+
+			// =========================================
+			// BASE64 DECODE
+			// =========================================
+
+			byte[] decodedBytes = Base64.getDecoder().decode(response.getData());
+
+			String decodedJson = new String(decodedBytes, StandardCharsets.UTF_8);
+
+			JsonNode jsonNode = MAPPER.readTree(decodedJson);
+
+			// =========================================
+			// CHECK DUPLICATE
+			// =========================================
+
+			boolean exists = returnComparisonReportGstinJsonRepository.existsByGstinAndFy(doc.getGstin(), doc.getFy());
+
+			if (exists) {
+
+				log.warn("Duplicate JSON already exists GSTIN={} FY={}", doc.getGstin(), doc.getFy());
+
+			} else {
+
+				ReturnComparisonReportGstinJson jsonEntity = new ReturnComparisonReportGstinJson();
+
+				jsonEntity.setGstin(doc.getGstin());
+
+				jsonEntity.setFy(doc.getFy());
+
+				jsonEntity.setJsonData(jsonNode);
+
+				jsonEntity.setCounterAttempt(doc.getCounterAttempt());
+
+				jsonEntity.setIsProcessed(true);
+
+				// =====================================
+				// SAVE JSON IMMEDIATELY
+				// =====================================
+
+				returnComparisonReportGstinJsonRepository.save(jsonEntity);
+
+				log.info("JSON saved GSTIN={} FY={}", doc.getGstin(), doc.getFy());
+			}
+
+			// =========================================
+			// UPDATE SUCCESS
+			// =========================================
+
+			doc.setIsProcessed(true);
+
+			doc.setIsProcessing(false);
+
+			returnComparisonReportGstinRepository.save(doc);
+
+			log.info("SUCCESS GSTIN={} FY={}", doc.getGstin(), doc.getFy());
+
+		} catch (Exception e) {
+
+			log.error("Processing failed GSTIN={} FY={}", doc.getGstin(), doc.getFy(), e);
+
+			updateErrorRecordGetComparisonReport(doc);
+		}
+	}
+
+	public void updateErrorRecordGetComparisonReport(ReturnComparisonReportGstin doc) {
+
+		try {
+
+			doc.setIsProcessed(false);
+
+			doc.setIsProcessing(false);
+
+			doc.setCounterAttempt(doc.getCounterAttempt() + 1);
+
+			returnComparisonReportGstinRepository.save(doc);
+
+			log.error("FAILED GSTIN={} FY={} ATTEMPT={}", doc.getGstin(), doc.getFy(), doc.getCounterAttempt());
+
+		} catch (Exception e) {
+
+			log.error("Error updating failed record GSTIN={}", doc.getGstin(), e);
+		}
+	}
+
+	public String getComparisonReport(String userName) {
+
+		long startTime = System.currentTimeMillis();
+
+		log.info("====================================================");
+		log.info("STARTED GET COMPARISON REPORT PROCESS");
+		log.info("USERNAME={}", userName);
+		log.info("====================================================");
+
+		AtomicInteger successCount = new AtomicInteger();
+		AtomicInteger failedCount = new AtomicInteger();
+
+		try {
+
+			MasterData masterData = masterDataService.getMasterdatabyName(userName);
+
+			if (masterData == null) {
+
+				log.error("Master data not found USERNAME={}", userName);
+
+				return "Master data not found";
+			}
+
+			GSTUserSession session = gstUserSessionServices.getUserSessionsByName(userName);
+
+			if (session == null) {
+
+				log.error("Session not found USERNAME={}", userName);
+
+				return "Session not authenticated";
+			}
+
+			while (true) {
+
+				Pageable pageable = PageRequest.of(0, 100);
+
+				Page<ReturnComparisonReportGstin> page = returnComparisonReportGstinRepository.findPendingRecords(10,
+						pageable);
+
+				if (page.isEmpty()) {
+
+					log.info("No pending records found");
+
+					break;
+				}
+
+				log.info("Fetched pending records size={}", page.getContent().size());
+
+				for (ReturnComparisonReportGstin doc : page.getContent()) {
+
+					try {
+
+						// ======================================
+						// MARK PROCESSING
+						// ======================================
+
+						doc.setIsProcessing(true);
+
+						returnComparisonReportGstinRepository.save(doc);
+
+						log.info("PROCESSING STARTED GSTIN={} FY={}", doc.getGstin(), doc.getFy());
+
+						// ======================================
+						// PROCESS RECORD
+						// ======================================
+
+						processSingleSingleGstin(masterData, session, doc);
+
+						successCount.incrementAndGet();
+
+					} catch (Exception e) {
+
+						failedCount.incrementAndGet();
+
+						log.error("Processing failed GSTIN={} FY={}", doc.getGstin(), doc.getFy(), e);
+
+						updateErrorRecordGetComparisonReport(doc);
+					}
+				}
+
+				log.info("Current batch completed");
+			}
+
+		} catch (Exception e) {
+
+			log.error("Bulk processing failed", e);
+		}
+
+		long totalTime = System.currentTimeMillis() - startTime;
+
+		log.info("====================================================");
+		log.info("PROCESS COMPLETED");
+		log.info("SUCCESS={}", successCount.get());
+		log.info("FAILED={}", failedCount.get());
+		log.info("TOTAL TIME={} ms", totalTime);
+		log.info("====================================================");
+
+		return "Success=" + successCount.get() + " Failed=" + failedCount.get() + " Time(ms)=" + totalTime;
+	}
+
+	public String processDocumentsHim(String userName) {
+
+		long startTime = System.currentTimeMillis();
+		log.info("Started process Documents Him for user={}", userName);
+
+		MasterData masterData = masterDataService.getMasterdatabyName(userName);
+		if (masterData == null)
+			return "Master data not found";
+
+		GSTUserSession session = gstUserSessionServices.getUserSessionsByName(userName);
+		if (session == null)
+			return "Session not authenticated";
+
+		ExecutorService executor = Executors.newFixedThreadPool(50);
+			
+		AtomicInteger successCount = new AtomicInteger(0);
+		AtomicInteger failedCount = new AtomicInteger(0);
+
+		// 🔥 Blocking Queue
+		
+		BlockingQueue<ReturnComparisonReportGstinJson> updateQueue = new LinkedBlockingQueue<>();
+
+		final int BATCH_SIZE = 1;
+
+		// 🔥 DB SAVER THREAD
+		Thread dbSaverThread = new Thread(() -> {
+
+			List<ReturnComparisonReportGstinJson> batch = new ArrayList<>();
+
+			try {
+				while (true) {
+
+					ReturnComparisonReportGstinJson doc = updateQueue.poll(5, TimeUnit.SECONDS);
+
+					if (doc != null) {
+						batch.add(doc);
+					}
+
+					// SAVE WHEN BATCH FULL
+					if (batch.size() >= BATCH_SIZE) {
+						returnComparisonReportGstinJsonRepository.saveAll(batch);
+						returnComparisonReportGstinJsonRepository.flush();
+
+						log.info("✅ Batch saved size={}", batch.size());
+						batch.clear();
+					}
+
+					// Stop condition
+					if (Thread.currentThread().isInterrupted()) {
+						break;
+					}
+				}
+
+				// FINAL SAVE
+				if (!batch.isEmpty()) {
+					returnComparisonReportGstinJsonRepository.saveAll(batch);
+					returnComparisonReportGstinJsonRepository.flush();
+					log.info("✅ Final batch saved size={}", batch.size());
+				}
+
+			} catch (Exception e) {
+				log.error("DB Saver Thread failed", e);
+			}
+
+		});
+
+		dbSaverThread.start();
+
+		try {
+
+			while (true) {
+
+				Pageable pageable = PageRequest.of(0, 500);
+
+				Page<ReturnComparisonReportGstinJson> page = returnComparisonReportGstinJsonRepository
+						.findByIsProcessedNullOrIsProcessedFalse(pageable);
+
+				if (page.isEmpty()) {
+					log.info("✅ No more pending records found. Exiting loop.");
+					break;
+				}
+
+				log.info("Fetched records size={}", page.getContent().size());
+
+				List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+				for (ReturnComparisonReportGstinJson doc : page.getContent()) {
+
+					CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+
+						try {
+							processSingleDocumentHim(masterData, session, doc, updateQueue);
+							successCount.incrementAndGet();
+
+						} catch (Exception e) {
+							failedCount.incrementAndGet();
+							log.error("Failed Fy={} gstin={}", doc.getFy(), doc.getGstin(), e);
+
+							updateErrorRecordHim(doc, e.getMessage(), updateQueue);
+						}
+
+					}, executor);
+
+					futures.add(future);
+				}
+
+				// wait for all threads
+				CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+				log.info("Loop completed processed={}", page.getContent().size());
+			}
+
+		} catch (Exception e) {
+			log.error("Bulk processing failed", e);
+		} finally {
+
+			// stop executor
+			executor.shutdown();
+			try {
+				if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+					executor.shutdownNow();
+				}
+			} catch (InterruptedException e) {
+				executor.shutdownNow();
+				Thread.currentThread().interrupt();
+			}
+
+			// 🔥 STOP DB THREAD
+			dbSaverThread.interrupt();
+			try {
+				dbSaverThread.join();
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+		}
+
+		long totalTime = System.currentTimeMillis() - startTime;
+
+		log.info("Completed | success={} | failed={} | time={} ms", successCount.get(), failedCount.get(), totalTime);
+
+		return "Success: " + successCount.get() + ", Failed: " + failedCount.get() + ", Time(ms): " + totalTime;
+	}
+
+	public void processSingleDocumentHim(MasterData masterData, GSTUserSession session,
+			ReturnComparisonReportGstinJson doc, BlockingQueue<ReturnComparisonReportGstinJson> updateQueue) {
+
+		try {
+
+			// =========================================
+			// API DETAILS
+			// =========================================
+
+			APIDetails apiDetails = apiDetailsImpl.findByName(Constants.GET_COMPARISION_REPORT);
+
+			HttpHeaders headers = authenticationHelper.getDefaultHeaders(masterData, session.getAuthToken(),
+					apiDetails.getApiContentType());
+
+			Map<String, String> params = Map.of("gstin", doc.getGstin(), "action", "COMPREPORT", "year", doc.getFy());
+
+			String apiPath = authenticationHelper
+					.getUriWithParam(authenticationHelper.getFullPath(masterData, apiDetails), params);
+
+			log.info("Calling API={}", apiPath);
+
+			// =========================================
+			// API CALL
+			// =========================================
+
+			GSTCommonResponseBean response = restClient.get(apiPath, GSTCommonResponseBean.class, headers);
+
+			// =========================================
+			// EMPTY RESPONSE
+			// =========================================
+
+			if (response == null || response.getData() == null || response.getData().isBlank()) {
+
+				log.error("Empty response GSTIN={} FY={}", doc.getGstin(), doc.getFy());
+
+				updateErrorRecordHim(doc, "Null response from API", updateQueue);
+
+				return;
+			}
+
+			// =========================================
+			// BASE64 DECODE
+			// =========================================
+
+			byte[] decodedBytes = Base64.getDecoder().decode(response.getData());
+
+			String decodedJson = new String(decodedBytes, StandardCharsets.UTF_8);
+
+			JsonNode jsonNode = MAPPER.readTree(decodedJson);
+
+			// =========================================
+			// CHECK DUPLICATE
+			// =========================================
+
+			boolean exists = returnComparisonReportGstinJsonRepository.existsByGstinAndFy(doc.getGstin(), doc.getFy());
+
+			if (exists) {
+
+				log.warn("Duplicate JSON already exists GSTIN={} FY={}", doc.getGstin(), doc.getFy());
+
+			} else {
+
+				ReturnComparisonReportGstinJson jsonEntity = new ReturnComparisonReportGstinJson();
+
+				jsonEntity.setGstin(doc.getGstin());
+
+				jsonEntity.setFy(doc.getFy());
+
+				jsonEntity.setJsonData(jsonNode);
+
+				jsonEntity.setCounterAttempt(doc.getCounterAttempt());
+
+				jsonEntity.setIsProcessed(true);
+
+				// =====================================
+				// SAVE JSON IMMEDIATELY
+				// =====================================
+
+				returnComparisonReportGstinJsonRepository.save(jsonEntity);
+
+				log.info("JSON saved GSTIN={} FY={}", doc.getGstin(), doc.getFy());
+			}
+
+			log.info("ALREADY IN THE DATABASE SUCCESS GSTIN={} FY={}", doc.getGstin(), doc.getFy());
+
+		} catch (Exception e) {
+			updateErrorRecordHim(doc, e.getMessage(), updateQueue);
+		}
+	}
+
+	public void updateErrorRecordHim(ReturnComparisonReportGstinJson doc, String errorMessage,
+			Queue<ReturnComparisonReportGstinJson> queue) {
+
+		try {
+
+			doc.setIsProcessed(false);
+			doc.setCounterAttempt(doc.getCounterAttempt()+1);
+			queue.add(doc);
+
+		} catch (Exception e) {
+			log.error("Error updating record Gstin={}", doc.getGstin(), e);
+		}
 	}
 
 }
