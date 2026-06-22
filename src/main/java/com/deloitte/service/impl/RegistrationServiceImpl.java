@@ -1380,70 +1380,25 @@ public class RegistrationServiceImpl {
 	public String processDocumentsHim(String userName) {
 
 		long startTime = System.currentTimeMillis();
-		log.info("Started process Documents Him for user={}", userName);
+
+		log.info("Started processDocumentsHim for user={}", userName);
 
 		MasterData masterData = masterDataService.getMasterdatabyName(userName);
-		if (masterData == null)
+
+		if (masterData == null) {
 			return "Master data not found";
+		}
 
 		GSTUserSession session = gstUserSessionServices.getUserSessionsByName(userName);
-		if (session == null)
+
+		if (session == null) {
 			return "Session not authenticated";
+		}
 
 		ExecutorService executor = Executors.newFixedThreadPool(50);
-			
+
 		AtomicInteger successCount = new AtomicInteger(0);
 		AtomicInteger failedCount = new AtomicInteger(0);
-
-		// 🔥 Blocking Queue
-		
-		BlockingQueue<ReturnComparisonReportGstinJson> updateQueue = new LinkedBlockingQueue<>();
-
-		final int BATCH_SIZE = 1;
-
-		// 🔥 DB SAVER THREAD
-		Thread dbSaverThread = new Thread(() -> {
-
-			List<ReturnComparisonReportGstinJson> batch = new ArrayList<>();
-
-			try {
-				while (true) {
-
-					ReturnComparisonReportGstinJson doc = updateQueue.poll(5, TimeUnit.SECONDS);
-
-					if (doc != null) {
-						batch.add(doc);
-					}
-
-					// SAVE WHEN BATCH FULL
-					if (batch.size() >= BATCH_SIZE) {
-						returnComparisonReportGstinJsonRepository.saveAll(batch);
-						returnComparisonReportGstinJsonRepository.flush();
-
-						log.info("✅ Batch saved size={}", batch.size());
-						batch.clear();
-					}
-
-					// Stop condition
-					if (Thread.currentThread().isInterrupted()) {
-						break;
-					}
-				}
-
-				// FINAL SAVE
-				if (!batch.isEmpty()) {
-					returnComparisonReportGstinJsonRepository.saveAll(batch);
-					returnComparisonReportGstinJsonRepository.flush();
-					log.info("✅ Final batch saved size={}", batch.size());
-				}
-
-			} catch (Exception e) {
-				log.error("DB Saver Thread failed", e);
-			}
-
-		});
-
-		dbSaverThread.start();
 
 		try {
 
@@ -1452,30 +1407,44 @@ public class RegistrationServiceImpl {
 				Pageable pageable = PageRequest.of(0, 500);
 
 				Page<ReturnComparisonReportGstinJson> page = returnComparisonReportGstinJsonRepository
-						.findByIsProcessedNullOrIsProcessedFalse(pageable);
+						.findByIsProcessedNullOrIsProcessedFalseAndCounterAttemptLessThan(4,pageable);
 
 				if (page.isEmpty()) {
-					log.info("✅ No more pending records found. Exiting loop.");
+
+					log.info("No pending records found. Processing completed.");
+
 					break;
 				}
 
-				log.info("Fetched records size={}", page.getContent().size());
+				List<ReturnComparisonReportGstinJson> records = page.getContent();
+
+				log.info("Fetched {} records", records.size());
 
 				List<CompletableFuture<Void>> futures = new ArrayList<>();
 
-				for (ReturnComparisonReportGstinJson doc : page.getContent()) {
+				for (ReturnComparisonReportGstinJson doc : records) {
 
 					CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
 
 						try {
-							processSingleDocumentHim(masterData, session, doc, updateQueue);
+
+							processSingleDocumentHim(masterData, session, doc);
+
 							successCount.incrementAndGet();
 
-						} catch (Exception e) {
-							failedCount.incrementAndGet();
-							log.error("Failed Fy={} gstin={}", doc.getFy(), doc.getGstin(), e);
+						} catch (Exception ex) {
 
-							updateErrorRecordHim(doc, e.getMessage(), updateQueue);
+							failedCount.incrementAndGet();
+
+							log.error("Failed GSTIN={} FY={}", doc.getGstin(), doc.getFy(), ex);
+
+							doc.setIsProcessed(false);
+
+							doc.setCounterAttempt(doc.getCounterAttempt() == 0 ? 1 : doc.getCounterAttempt() + 1);
+
+							doc.setErrorMessage(ex.getMessage());
+
+							returnComparisonReportGstinJsonRepository.save(doc);
 						}
 
 					}, executor);
@@ -1483,86 +1452,64 @@ public class RegistrationServiceImpl {
 					futures.add(future);
 				}
 
-				// wait for all threads
 				CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
-				log.info("Loop completed processed={}", page.getContent().size());
+				log.info("Batch Completed. Records Processed={}", records.size());
 			}
 
-		} catch (Exception e) {
-			log.error("Bulk processing failed", e);
+		} catch (Exception ex) {
+
+			log.error("Bulk processing failed", ex);
+
 		} finally {
 
-			// stop executor
 			executor.shutdown();
+
 			try {
+
 				if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+
 					executor.shutdownNow();
 				}
-			} catch (InterruptedException e) {
-				executor.shutdownNow();
-				Thread.currentThread().interrupt();
-			}
 
-			// 🔥 STOP DB THREAD
-			dbSaverThread.interrupt();
-			try {
-				dbSaverThread.join();
 			} catch (InterruptedException e) {
+
+				executor.shutdownNow();
+
 				Thread.currentThread().interrupt();
 			}
 		}
 
 		long totalTime = System.currentTimeMillis() - startTime;
 
-		log.info("Completed | success={} | failed={} | time={} ms", successCount.get(), failedCount.get(), totalTime);
+		log.info("Completed | Success={} | Failed={} | Time={} ms", successCount.get(), failedCount.get(), totalTime);
 
-		return "Success: " + successCount.get() + ", Failed: " + failedCount.get() + ", Time(ms): " + totalTime;
+		return "Success=" + successCount.get() + ", Failed=" + failedCount.get() + ", Time(ms)=" + totalTime;
 	}
 
 	public void processSingleDocumentHim(MasterData masterData, GSTUserSession session,
-			ReturnComparisonReportGstinJson doc, BlockingQueue<ReturnComparisonReportGstinJson> updateQueue) {
+			ReturnComparisonReportGstinJson doc) {
 
 		try {
-
-			// =========================================
-			// API DETAILS
-			// =========================================
 
 			APIDetails apiDetails = apiDetailsImpl.findByName(Constants.GET_COMPARISION_REPORT);
 
 			HttpHeaders headers = authenticationHelper.getDefaultHeaders(masterData, session.getAuthToken(),
 					apiDetails.getApiContentType());
 
-			Map<String, String> params = Map.of("gstin", doc.getGstin(), "action", "COMPREPORT", "year", doc.getFy());
+			Map<String, String> params = Map.of("gstin", doc.getGstin(), "action", "COMPREPORT", "fy", doc.getFy());
 
 			String apiPath = authenticationHelper
 					.getUriWithParam(authenticationHelper.getFullPath(masterData, apiDetails), params);
 
-			log.info("Calling API={}", apiPath);
-
-			// =========================================
-			// API CALL
-			// =========================================
+			log.info("Calling API GSTIN={} FY={}", doc.getGstin(), doc.getFy());
 
 			GSTCommonResponseBean response = restClient.get(apiPath, GSTCommonResponseBean.class, headers);
 
-			// =========================================
-			// EMPTY RESPONSE
-			// =========================================
-
 			if (response == null || response.getData() == null || response.getData().isBlank()) {
 
-				log.error("Empty response GSTIN={} FY={}", doc.getGstin(), doc.getFy());
-
-				updateErrorRecordHim(doc, "Null response from API", updateQueue);
-
-				return;
+				throw new RuntimeException("Null response from API");
 			}
-
-			// =========================================
-			// BASE64 DECODE
-			// =========================================
 
 			byte[] decodedBytes = Base64.getDecoder().decode(response.getData());
 
@@ -1570,43 +1517,33 @@ public class RegistrationServiceImpl {
 
 			JsonNode jsonNode = MAPPER.readTree(decodedJson);
 
-			// =========================================
-			// CHECK DUPLICATE
-			// =========================================
+			doc.setJsonData(jsonNode);
 
-			boolean exists = returnComparisonReportGstinJsonRepository.existsByGstinAndFy(doc.getGstin(), doc.getFy());
+			doc.setIsProcessed(true);
 
-			if (exists) {
+			doc.setErrorMessage(null);
 
-				log.warn("Duplicate JSON already exists GSTIN={} FY={}", doc.getGstin(), doc.getFy());
-
-			} else {
-
-				ReturnComparisonReportGstinJson jsonEntity = new ReturnComparisonReportGstinJson();
-
-				jsonEntity.setGstin(doc.getGstin());
-
-				jsonEntity.setFy(doc.getFy());
-
-				jsonEntity.setJsonData(jsonNode);
-
-				jsonEntity.setCounterAttempt(doc.getCounterAttempt());
-
-				jsonEntity.setIsProcessed(true);
-
-				// =====================================
-				// SAVE JSON IMMEDIATELY
-				// =====================================
-
-				returnComparisonReportGstinJsonRepository.save(jsonEntity);
-
-				log.info("JSON saved GSTIN={} FY={}", doc.getGstin(), doc.getFy());
+			if (doc.getCounterAttempt() == 0) {
+				doc.setCounterAttempt(0);
 			}
 
-			log.info("ALREADY IN THE DATABASE SUCCESS GSTIN={} FY={}", doc.getGstin(), doc.getFy());
+			returnComparisonReportGstinJsonRepository.save(doc);
 
-		} catch (Exception e) {
-			updateErrorRecordHim(doc, e.getMessage(), updateQueue);
+			log.info("Successfully processed GSTIN={} FY={}", doc.getGstin(), doc.getFy());
+
+		} catch (Exception ex) {
+
+			log.error("Error GSTIN={} FY={}", doc.getGstin(), doc.getFy(), ex);
+
+			doc.setIsProcessed(false);
+
+			doc.setCounterAttempt(doc.getCounterAttempt() == 0 ? 1 : doc.getCounterAttempt() + 1);
+
+			doc.setErrorMessage(ex.getMessage());
+
+			returnComparisonReportGstinJsonRepository.save(doc);
+
+			throw new RuntimeException(ex);
 		}
 	}
 
@@ -1616,7 +1553,7 @@ public class RegistrationServiceImpl {
 		try {
 
 			doc.setIsProcessed(false);
-			doc.setCounterAttempt(doc.getCounterAttempt()+1);
+			doc.setCounterAttempt(doc.getCounterAttempt() + 1);
 			queue.add(doc);
 
 		} catch (Exception e) {

@@ -35,6 +35,12 @@ public class ReturnComparisonReportGstinJson {
 
 	@Column(name = "fy")
 	private String fy;
+	
+	@Column(name = "status")
+	private String status;
+	
+	@Column(name = "error_message")
+	private String errorMessage;
 
 	@JdbcTypeCode(SqlTypes.JSON)
 	@Column(name = "jsondata")

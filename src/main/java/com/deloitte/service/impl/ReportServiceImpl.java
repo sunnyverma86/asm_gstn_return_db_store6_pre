@@ -26,6 +26,11 @@ public class ReportServiceImpl {
 			return generateEwbReport(request);
 		}
 
+		if ("payment".equalsIgnoreCase(request.getTy())) {
+
+			return generatePaymentReport(request);
+		}
+
 		return generateReturnReport(request);
 	}
 
@@ -265,6 +270,150 @@ public class ReportServiceImpl {
 				(System.currentTimeMillis() - startTime));
 
 		return result;
+	}
+
+	private List<ReportResponseDTO> generatePaymentReport(ReportRequestDTO request) {
+
+		long startTime = System.currentTimeMillis();
+
+		log.info("====================================================");
+		log.info("PAYMENT REPORT GENERATION STARTED");
+		log.info("FROM DATE : {}", request.getFromDate());
+		log.info("TO DATE   : {}", request.getToDate());
+		log.info("====================================================");
+
+		String sql = """
+				SELECT
+				    t1.dt,
+				    t1.num_files,
+				    t1.file_num,
+				    t1.num_filescnt,
+				    t3.dt AS dt2,
+				    t3.filenumber,
+				    t3.cntt AS jsoncount
+				FROM
+				(
+				    SELECT
+				        A.dt,
+				        A.num_files,
+				        B.file_num,
+				        B.cnt AS num_filescnt
+				    FROM filecounter."ReturnFileCount" A
+				    LEFT JOIN filecounter."ReturnFileDetail" B
+				        ON A."ReturnFileCountId" = B."ReturnFileCountId"
+				    WHERE A.ty = 'payment'
+				      AND A.dt BETWEEN ? AND ?
+				      AND A."IsSuccess" = '1'
+				) t1
+				LEFT JOIN
+				(
+				    SELECT
+				        dt,
+				        filenumber,
+				        CAST(SUM(cntt) AS BIGINT) AS cntt
+				    FROM
+				    (
+				        SELECT
+				            dt,
+				            filenumber,
+				            COUNT(epy->'cin') AS cntt
+				        FROM log.payment_initial_json
+				        LEFT JOIN LATERAL
+				            jsonb_array_elements(jsondata->'cin'->'epy') epy(value)
+				            ON TRUE
+				        WHERE dt BETWEEN ? AND ?
+				        GROUP BY dt, filenumber
+
+				        UNION ALL
+
+				        SELECT
+				            dt,
+				            filenumber,
+				            COUNT(ner->'cin') AS cntt
+				        FROM log.payment_initial_json
+				        LEFT JOIN LATERAL
+				            jsonb_array_elements(jsondata->'cin'->'ner') ner(value)
+				            ON TRUE
+				        WHERE dt BETWEEN ? AND ?
+				        GROUP BY dt, filenumber
+
+				        UNION ALL
+
+				        SELECT
+				            dt,
+				            filenumber,
+				            COUNT(otc->'cin') AS cntt
+				        FROM log.payment_initial_json
+				        LEFT JOIN LATERAL
+				            jsonb_array_elements(jsondata->'cin'->'otc') otc(value)
+				            ON TRUE
+				        WHERE dt BETWEEN ? AND ?
+				        GROUP BY dt, filenumber
+
+				    ) x
+				    GROUP BY dt, filenumber
+				) t3
+				ON t1.dt = t3.dt
+				AND t1.file_num = t3.filenumber
+				ORDER BY t1.dt DESC, t1.file_num DESC
+				""";
+
+		String logQuery = sql.replaceFirst("\\?", "'" + request.getFromDate() + "'")
+				.replaceFirst("\\?", "'" + request.getToDate() + "'")
+				.replaceFirst("\\?", "'" + request.getFromDate() + "'")
+				.replaceFirst("\\?", "'" + request.getToDate() + "'")
+				.replaceFirst("\\?", "'" + request.getFromDate() + "'")
+				.replaceFirst("\\?", "'" + request.getToDate() + "'")
+				.replaceFirst("\\?", "'" + request.getFromDate() + "'")
+				.replaceFirst("\\?", "'" + request.getToDate() + "'");
+
+		log.info("PAYMENT QUERY:\n{}", logQuery);
+
+		try {
+
+			List<ReportResponseDTO> result = jdbcTemplate.query(sql,
+					new Object[] { request.getFromDate(), request.getToDate(),
+
+							request.getFromDate(), request.getToDate(),
+
+							request.getFromDate(), request.getToDate(),
+
+							request.getFromDate(), request.getToDate() },
+					(rs, rowNum) -> {
+
+						ReportResponseDTO dto = new ReportResponseDTO();
+
+						dto.setDt(rs.getDate("dt") != null ? rs.getDate("dt").toLocalDate() : null);
+
+						dto.setNumFiles(rs.getObject("num_files", Integer.class));
+
+						dto.setFileNum(rs.getObject("file_num", Integer.class));
+
+						dto.setNumFilesCnt(rs.getObject("num_filescnt", Integer.class));
+
+						dto.setDt2(rs.getDate("dt2") != null ? rs.getDate("dt2").toLocalDate() : null);
+
+						dto.setFileNumber(rs.getObject("filenumber", Integer.class));
+
+						dto.setJsonCount(rs.getObject("jsoncount") == null ? 0L : rs.getLong("jsoncount"));
+
+						return dto;
+					});
+
+			log.info("====================================================");
+			log.info("PAYMENT REPORT GENERATED SUCCESSFULLY");
+			log.info("TOTAL RECORDS : {}", result.size());
+			log.info("TIME TAKEN    : {} ms", (System.currentTimeMillis() - startTime));
+			log.info("====================================================");
+
+			return result;
+
+		} catch (Exception ex) {
+
+			log.error("Error while generating PAYMENT report", ex);
+
+			throw new RuntimeException("Unable to generate PAYMENT report.", ex);
+		}
 	}
 
 	public List<LastUpdateDTO> getLastUpdateReport() {

@@ -15,4 +15,9 @@ public interface ReturnComparisonReportGstinJsonRepository
 
 	Page<ReturnComparisonReportGstinJson> findByIsProcessedNullOrIsProcessedFalse(Pageable pageable);
 
+	boolean existsByGstinAndFyAndIsProcessed(String gstin, String fy, boolean b);
+
+	Page<ReturnComparisonReportGstinJson> findByIsProcessedNullOrIsProcessedFalseAndCounterAttemptLessThan(int i,
+			Pageable pageable);
+
 }
