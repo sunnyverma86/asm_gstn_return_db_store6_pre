@@ -19,7 +19,7 @@
 #      hibernate:
 #        format_sql: true
 #        default_schema: public
-#
+
 #    defer-datasource-initialization: true
 
 #redis

@@ -240,7 +240,39 @@ DOWNLOAD PDF
 ==================================================
 */
 function downloadPdf() {
-    window.location.href = "/api/pdf";
+
+    const request = {
+        fromDate: document.getElementById("fromDate").value,
+        toDate: document.getElementById("toDate").value,
+        ty: document.getElementById("ty").value
+    };
+
+    fetch('/api/pdf', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(request)
+    })
+    .then(response => response.blob())
+    .then(blob => {
+
+        const url = window.URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+
+        a.href = url;
+
+        a.download = 'Report.pdf';
+
+        document.body.appendChild(a);
+
+        a.click();
+
+        a.remove();
+
+        window.URL.revokeObjectURL(url);
+    });
 }
 
 
@@ -250,7 +282,39 @@ DOWNLOAD EXCEL
 ==================================================
 */
 function downloadExcel() {
-    window.location.href = "/api/excel";
+
+    const request = {
+        fromDate: document.getElementById("fromDate").value,
+        toDate: document.getElementById("toDate").value,
+        ty: document.getElementById("ty").value
+    };
+
+    fetch('/api/excel', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(request)
+    })
+    .then(response => response.blob())
+    .then(blob => {
+
+        const url = window.URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+
+        a.href = url;
+
+        a.download = 'Report.xlsx';
+
+        document.body.appendChild(a);
+
+        a.click();
+
+        a.remove();
+
+        window.URL.revokeObjectURL(url);
+    });
 }
 
 

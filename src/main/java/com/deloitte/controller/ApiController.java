@@ -2,9 +2,6 @@ package com.deloitte.controller;
 
 import java.util.List;
 
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -14,10 +11,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.deloitte.common.bean.LastUpdateDTO;
 import com.deloitte.common.bean.ReportRequestDTO;
 import com.deloitte.common.bean.ReportResponseDTO;
+import com.deloitte.service.impl.ReportFileServiceImpl;
 import com.deloitte.service.impl.ReportServiceImpl;
-import com.itextpdf.text.Document;
-import com.itextpdf.text.Paragraph;
-import com.itextpdf.text.pdf.PdfWriter;
 
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +25,8 @@ import lombok.extern.slf4j.Slf4j;
 public class ApiController {
 
 	private final ReportServiceImpl reportServiceImpl;
+
+	private final ReportFileServiceImpl reportFileServiceImpl;
 
 	@PostMapping("/report")
 	public List<ReportResponseDTO> report(@RequestBody ReportRequestDTO request) {
@@ -54,29 +51,20 @@ public class ApiController {
 
 	}
 
-	@GetMapping("/excel")
-	public void excel(HttpServletResponse response) throws Exception {
+	@PostMapping("/excel")
+	public void downloadExcel(@RequestBody ReportRequestDTO request, HttpServletResponse response) throws Exception {
 
-		Workbook workbook = new XSSFWorkbook();
+		List<ReportResponseDTO> data = reportServiceImpl.generateReport(request);
 
-		Sheet sheet = workbook.createSheet("Report");
-
-		workbook.write(response.getOutputStream());
-
+		reportFileServiceImpl.generateExcel(data, request, response);
 	}
 
-	@GetMapping("/pdf")
-	public void pdf(HttpServletResponse response) throws Exception {
+	@PostMapping("/pdf")
+	public void downloadPdf(@RequestBody ReportRequestDTO request, HttpServletResponse response) throws Exception {
 
-		Document document = new Document();
+		List<ReportResponseDTO> data = reportServiceImpl.generateReport(request);
 
-		PdfWriter.getInstance(document, response.getOutputStream());
-
-		document.open();
-
-		document.add(new Paragraph("Enterprise Report"));
-
-		document.close();
+		reportFileServiceImpl.generatePdf(data, request, response);
 	}
 
 }
