@@ -1,0 +1,63 @@
+<div th:fragment="returnOnFlySection">
+
+    <div class="card shadow">
+
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Return On The Fly</h5>
+        </div>
+
+        <div class="card-body">
+
+            <div class="row g-3">
+
+                <div class="col-md-2">
+                    <button class="btn btn-primary w-100"
+                            onclick="openReturn('GSTR1')">
+                        GSTR-1
+                    </button>
+                </div>
+
+                <div class="col-md-2">
+                    <button class="btn btn-success w-100"
+                            onclick="openReturn('GSTR2B')">
+                        GSTR-2B
+                    </button>
+                </div>
+
+                <div class="col-md-2">
+                    <button class="btn btn-danger w-100"
+                            onclick="openReturn('GSTR3B')">
+                        GSTR-3B
+                    </button>
+                </div>
+
+                <div class="col-md-2">
+                    <button class="btn btn-warning w-100">
+                        GSTR-9
+                    </button>
+                </div>
+
+                <div class="col-md-2">
+                    <button class="btn btn-info w-100">
+                        CMP-08
+                    </button>
+                </div>
+
+            </div>
+
+            <hr>
+
+            <div id="returnContentArea">
+
+                <div class="alert alert-info">
+                    Select Return Type
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+

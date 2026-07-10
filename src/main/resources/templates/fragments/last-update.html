@@ -1,28 +1,49 @@
 <div th:fragment="lastUpdate">
 
-    <h4 class="mt-3">
-        Last Update Status
-    </h4>
+	<h4 class="mt-3">
+		Last Update Status
+	</h4>
 
-    <div class="row"
-         id="updateCards">
+	<div class="mb-3">
 
-    </div>
+		<button class="btn btn-primary" onclick="loadReturnLastUpdate()">
+			Return
+		</button>
 
-    <table id="lastUpdateTable"
-           class="table table-bordered">
+		<button class="btn btn-success" onclick="loadCrnLastUpdate()">
+			CRN
+		</button>
 
-        <thead>
+		<button class="btn btn-warning" onclick="loadRegistrationLastUpdate()">
+			Registration
+		</button>
 
-            <tr>
-                <th>TY</th>
-                <th>Last Updated Date</th>
-            </tr>
+		<button class="btn btn-info" onclick="loadEwayBillLastUpdate()">
+			E-Way Bill
+		</button>
 
-        </thead>
+		<button class="btn btn-info" onclick="loadEwayBillLastUpdate()">
+			GSTIN DEPENDENT
+		</button>
 
-        <tbody></tbody>
+	</div>
 
-    </table>
+	<div class="row" id="updateCards">
+
+	</div>
+	<table id="lastUpdateTable" class="table table-bordered">
+
+		<thead>
+
+			<tr>
+				<th>TY</th>
+				<th>Last Updated Date</th>
+			</tr>
+
+		</thead>
+
+		<tbody></tbody>
+
+	</table>
 
 </div>

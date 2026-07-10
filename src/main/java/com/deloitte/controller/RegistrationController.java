@@ -41,6 +41,76 @@ public class RegistrationController {
 	protected GstUserSessionServices gstUserSessionServices;
 
 	private static final String USERNAME = "GSTG2G18";
+	
+	
+	
+	
+	
+	
+	/**
+	 * FINAL VERDICT
+	 */
+	@Scheduled(cron = "0 40 8 * * *")
+	@GetMapping("/complete-registration-automation-final-verdict")
+	public ResponseEntity<String> completeRegistrationAutomationFinalVerdict() {
+
+	    log.info("=====================================================");
+	    log.info("▶️ COMPLETE REGISTRATION AUTOMATION STARTED");
+	    log.info("=====================================================");
+
+	    long startTime = System.currentTimeMillis();
+
+	    try {
+
+	        // SESSION VALIDATION
+	        if (gstUserSessionServices.isSessionExpired(USERNAME)) {
+
+	            log.error("❌ SESSION EXPIRED BEFORE 6 HOUR");
+
+	            return ResponseEntity.badRequest()
+	                    .body("SESSION EXPIRED BEFORE 6 HOUR");
+	        }
+
+	        // STEP-1 : Complete Registration Automation
+	        log.info("▶️ STEP-1 : executeCompleteAutomation STARTED");
+
+	        String automationResponse = gstinService.executeCompleteAutomation();
+
+	        log.info("✅ STEP-1 : executeCompleteAutomation COMPLETED");
+
+	        // STEP-2 : Retry Alert Exception
+	        log.info("▶️ STEP-2 : retryAlertException STARTED");
+
+	        String retryResponse = gstinService.retryAlertException();
+
+	        log.info("✅ STEP-2 : retryAlertException COMPLETED");
+
+	        long totalTime = System.currentTimeMillis() - startTime;
+
+	        log.info("=====================================================");
+	        log.info("🏁 COMPLETE REGISTRATION AUTOMATION FINISHED");
+	        log.info("⏱️ TOTAL TIME = {} ms", totalTime);
+	        log.info("=====================================================");
+
+	        String finalResponse =
+	                automationResponse +
+	                "\n\n----------------------------------\n" +
+	                retryResponse;
+
+	        return ResponseEntity.ok(finalResponse);
+
+	    } catch (Exception ex) {
+
+	        long totalTime = System.currentTimeMillis() - startTime;
+
+	        log.error("❌ COMPLETE REGISTRATION AUTOMATION FAILED");
+	        log.error("⏱️ FAILED AFTER = {} ms", totalTime, ex);
+
+	        return ResponseEntity.internalServerError()
+	                .body("COMPLETE AUTOMATION FAILED : " + ex.getMessage());
+	    }
+	}
+	
 
 	// =========================================================
 	// COMPLETE AUTOMATION FLOW
@@ -49,7 +119,7 @@ public class RegistrationController {
 	// 3. REGISTRATION API-->all-registration-automatically
 	// =========================================================
 
-	@Scheduled(cron = "0 10 1 * * *")
+//	@Scheduled(cron = "0 10 1 * * *")
 	@GetMapping("/complete-registration-automation")
 	public ResponseEntity<String> completeRegistrationAutomation() {
 
@@ -103,7 +173,7 @@ public class RegistrationController {
 		return gstinService.processAlertByDateRange(currentStartDateTime, finalEndDateTime);
 	}
 	
-	@Scheduled(cron = "0 46 1 * * *")
+//	@Scheduled(cron = "0 46 1 * * *")
 	@GetMapping("/retry-alert-exception")
 	public String retryAlertException() {
 

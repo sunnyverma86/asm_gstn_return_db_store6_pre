@@ -1,0 +1,140 @@
+<div th:fragment="registrationReport">
+
+    <div class="card mt-3">
+
+        <div class="card-header bg-primary text-white">
+
+            <h5 class="mb-0">
+
+                Registration Monitoring Report
+
+            </h5>
+
+        </div>
+
+        <div class="card-body">
+
+            <div class="row">
+
+                <!-- From Date -->
+                <div class="col-md-3">
+
+                    <label class="form-label">
+
+                        From Date
+
+                    </label>
+
+                    <input
+                            type="date"
+                            id="registrationFromDate"
+                            class="form-control">
+
+                </div>
+
+                <!-- To Date -->
+                <div class="col-md-3">
+
+                    <label class="form-label">
+
+                        To Date
+
+                    </label>
+
+                    <input
+                            type="date"
+                            id="registrationToDate"
+                            class="form-control">
+
+                </div>
+
+                <!-- Button -->
+                <div class="col-md-3">
+
+                    <label class="form-label">
+
+                        &nbsp;
+
+                    </label>
+
+                    <button
+                            id="generateRegistrationBtn"
+                            class="btn btn-success w-100">
+
+                        Generate Report
+
+                    </button>
+
+                </div>
+
+            </div>
+
+            <hr>
+
+            <!-- Processing -->
+
+            <div
+                    id="registrationProcessingDiv"
+                    class="alert alert-warning"
+                    style="display:none;">
+
+                <span class="spinner-border spinner-border-sm"></span>
+
+                Processing Report...
+
+            </div>
+
+            <!-- Success -->
+
+            <div
+                    id="registrationSuccessDiv"
+                    class="alert alert-success"
+                    style="display:none;">
+
+                Registration Report Generated Successfully
+
+            </div>
+
+            <div class="table-responsive mt-3">
+
+                <table
+                        id="registrationReportTable"
+                        class="table table-bordered table-striped table-hover">
+
+                    <thead class="table-dark">
+
+                    <tr>
+
+                        <th>START DATE</th>
+
+                        <th>TOTAL FETCH ARN</th>
+
+                        <th>ARN SUCCESS</th>
+
+                        <th>ARN FAILURE</th>
+
+                        <th>TOTAL FETCH ENTITY</th>
+
+                        <th>ENTITY SUCCESS</th>
+
+                        <th>ENTITY FAILURE</th>
+
+                        <th>INSERT COUNT</th>
+
+                    </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>

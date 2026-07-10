@@ -1,0 +1,150 @@
+<div th:fragment="gstr1Return">
+
+	<div class="card shadow border-danger">
+
+		<div class="card-header bg-danger text-white">
+
+			<div class="row">
+
+				<div class="col-md-8">
+					<h5 class="mb-0">
+						GSTR1 Return Dashboard
+					</h5>
+				</div>
+
+			</div>
+
+		</div>
+
+		<div class="card-body">
+
+			<div class="row mb-3">
+
+				<div class="col-md-4">
+
+					<label class="form-label fw-bold">
+						GSTIN
+					</label>
+
+					<input type="text" id="flyGstin" class="form-control" placeholder="Enter GSTIN">
+
+				</div>
+
+				<div class="col-md-3">
+
+					<label class="form-label fw-bold">
+						Financial Year
+					</label>
+
+					<select id="flyFy" class="form-select">
+
+						<option value="2025-2026">
+							2025-2026
+						</option>
+
+						<option value="2024-2025">
+							2024-2025
+						</option>
+
+					</select>
+					
+					<select id="gstr1Section" class="form-select">
+
+										<option value="B2B">
+											B2B
+										</option>
+
+										<option value="B2CS">
+											B2B
+										</option>
+
+									</select>
+
+				</div>
+
+				<div class="col-md-2 d-flex align-items-end">
+
+					<button class="btn btn-success w-100" id="searchGstr1Btn">
+
+						Search
+
+					</button>
+
+				</div>
+
+			</div>
+
+			<div id="gstr1Loading" class="alert alert-info" style="display:none">
+
+				Fetching Return Data...
+
+			</div>
+
+			<div class="table-responsive">
+
+				<table id="gstr1Table"
+				       class="table table-bordered table-striped table-hover">
+
+				    <thead class="table-primary">
+
+				        <tr>
+				            <th>GSTIN</th>
+				            <th>RETURN PERIOD</th>
+				            <th>PURCHASER GSTIN</th>
+				            <th>PURCHASER LEGAL NAME</th>
+				            <th>PURCHASER TRADE NAME</th>
+				            <th>PURCHASER LOCATION</th>
+				            <th>INVOICE NO</th>
+				            <th>INVOICE DATE</th>
+				            <th>INVOICE VALUE</th>
+				            <th>RATE</th>
+				            <th>TAXABLE VALUE</th>
+				            <th>IGST</th>
+				            <th>CGST</th>
+				            <th>SGST</th>
+				            <th>CESS</th>
+				            <th>REVERSE CHARGE</th>
+				        </tr>
+
+				    </thead>
+
+				    <tbody id="gstr1TableBody"></tbody>
+
+				</table>
+
+			</div>
+
+		</div>
+
+	</div>
+
+</div>
+
+<style>
+	#gstr1Table {
+		white-space: nowrap;
+		font-size: 12px;
+	}
+
+	#gstr1Table thead th {
+		background: #0d6efd;
+		color: white;
+		text-align: center;
+		vertical-align: middle;
+		position: sticky;
+		top: 0;
+		z-index: 10;
+	}
+
+	#gstr1Table tbody td {
+		vertical-align: middle;
+	}
+
+	.table-responsive {
+		max-height: 700px;
+	}
+
+	.card {
+		border-radius: 12px;
+	}
+</style>

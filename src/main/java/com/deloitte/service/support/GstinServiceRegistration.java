@@ -70,7 +70,7 @@ public class GstinServiceRegistration extends CommonServiceImplAbs {
 	private static final DateTimeFormatter ALERT_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd:HH:mm:ss");
 	private static final DateTimeFormatter ALERT_FORMATTER_ONLY = DateTimeFormatter.ofPattern("yyyy-MM-dd:HH:mm");
 
-	private static final String BASE_PATH_DW = "/var/gst_files/GST_FILES/Return_Auto/dw";
+	private static final String BASE_PATH_DW = "/database/GST_FILES/Return_Auto/dw";
 
 	GstinServiceRegistration(CommonControllerGstrUtilityImpl commonControllerGstrUtilityImpl) {
 		this.commonControllerGstrUtilityImpl = commonControllerGstrUtilityImpl;
@@ -1648,7 +1648,7 @@ public class GstinServiceRegistration extends CommonServiceImplAbs {
 
 				Pageable pageable = PageRequest.of(0, 500);
 
-				Page<DcupdtlsGstr9c> page = dcupdtlsGstr9cRepository.findByIsProcessedNullOrIsProcessedFalse(pageable);
+				Page<DcupdtlsGstr9c> page = dcupdtlsGstr9cRepository.findByIsProcessedNullOrIsProcessedFalseAndCounterAttemptLessThan(4,pageable);
 
 				if (page.isEmpty()) {
 					log.info("✅ No more pending records found. Exiting loop.");
@@ -1769,6 +1769,7 @@ public class GstinServiceRegistration extends CommonServiceImplAbs {
 
 			doc.setIsProcessed(false);
 			doc.setInsertDt(new java.sql.Date(System.currentTimeMillis()));
+			doc.setCounterAttempt(doc.getCounterAttempt()+1);
 
 			queue.add(doc);
 
@@ -1783,6 +1784,7 @@ public class GstinServiceRegistration extends CommonServiceImplAbs {
 			doc.setPath(path);
 			doc.setFileName(fileName);
 			doc.setIsProcessed(true);
+			//doc.setCounterAttempt(0);
 			doc.setInsertDt(new java.sql.Date(System.currentTimeMillis()));
 
 			queue.add(doc);

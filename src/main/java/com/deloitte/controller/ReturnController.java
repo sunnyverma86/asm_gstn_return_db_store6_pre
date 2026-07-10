@@ -72,7 +72,7 @@ public class ReturnController {
 
 	// ========================== 1️⃣ DOWNLOAD APIs ==========================
 
-	@Scheduled(cron = "0 10 4 * * *")
+	@Scheduled(cron = "0 10 9 * * *")
 	@GetMapping("/CM8") // ready
 	public ResponseEntity<String> scheduleCmp08Download() {
 		return scheduleWithLogging("CM8", "scheduleCmp08Download");
@@ -83,7 +83,7 @@ public class ReturnController {
 		return scheduleWithLogging("ITC02", "scheduleItc02Download");
 	}
 
-	@Scheduled(cron = "0 30 4 * * *")
+	@Scheduled(cron = "0 20 9 * * *")
 	@GetMapping("/payment") // ready
 	public ResponseEntity<String> schedulePaymentDownload() {
 		return scheduleWithLogging("payment", "schedulePaymentDownload");
@@ -94,25 +94,25 @@ public class ReturnController {
 		return scheduleWithLogging("recon", "scheduleReconDataDownload");
 	}
 
-	@Scheduled(cron = "0 10 5 * * *")
+	@Scheduled(cron = "0 35 9 * * *")
 	@GetMapping("/R1") // ready
 	public ResponseEntity<String> scheduleGstr1Download() {
 		return scheduleWithLogging("R1", "scheduleGstr1Download");
 	}
 
-	@Scheduled(cron = "0 50 5 * * *")
+	@Scheduled(cron = "0 50 6 * * *")
 	@GetMapping("/R1A") // no need
 	public ResponseEntity<String> scheduleGstr1aDownload() {
 		return scheduleWithLogging("R1A", "scheduleGstr1aDownload");
 	}
 
-	@Scheduled(cron = "0 10 6 * * *")
+	@Scheduled(cron = "0 10 7 * * *")
 	@GetMapping("/R2B") // ready
 	public ResponseEntity<String> scheduleGstr2bDownload() {
 		return scheduleWithLogging("R2B", "scheduleGstr2bDownload");
 	}
 
-	@Scheduled(cron = "0 40 6 * * *")
+	@Scheduled(cron = "0 25 7 * * *")
 	@GetMapping("/R3B") // ready
 	public ResponseEntity<String> scheduleGstr3bDownload() {
 		return scheduleWithLogging("R3B", "scheduleGstr3bDownload");
@@ -164,19 +164,19 @@ public class ReturnController {
 		return scheduleWithLogging("R98A", "scheduleGstr98aDownload");
 	}
 
-	@Scheduled(cron = "0 10 9 * * *")
+	@Scheduled(cron = "0 50 9 * * *")
 	@GetMapping("/R9C") // ready---
 	public ResponseEntity<String> scheduleGstr9cDownload() {
 		return scheduleWithLogging("R9C", "scheduleGstr9cDownload");
 	}
 
-	@Scheduled(cron = "0 10 9 * * *")
+	@Scheduled(cron = "0 55 8 * * *")
 	@GetMapping("/R10") // ready---
 	public ResponseEntity<String> scheduleGstr10Download() {
 		return scheduleWithLogging("R10", "scheduleGstr10Download");
 	}
 
-	@Scheduled(cron = "0 20 9 * * *")
+	@Scheduled(cron = "0 58 8 * * *")
 	@GetMapping("/R11") // ready---
 	public ResponseEntity<String> scheduleGstr11Download() {
 		return scheduleWithLogging("R11", "scheduleGstr11Download");
@@ -253,9 +253,7 @@ public class ReturnController {
 	@GetMapping("/processAllDocuments") // need to change the table
 	public ResponseEntity<String> processAllDocuments() {
 
-		String userName = "GSTG2G18";
-
-		String response = gstinServiceRegistration.processAllDocuments(userName);
+		String response = gstinServiceRegistration.processAllDocuments(USERNAME);
 
 		return ResponseEntity.ok(response);
 	}
@@ -263,9 +261,7 @@ public class ReturnController {
 	@GetMapping("/processFewDocuments") // need to change the table--
 	public ResponseEntity<String> processFewDocuments() {
 
-		String userName = "GSTG2G18";
-
-		String response = gstinServiceRegistration.processFewDocuments(userName);
+		String response = gstinServiceRegistration.processFewDocuments(USERNAME);
 
 		return ResponseEntity.ok(response);
 	}
@@ -273,20 +269,49 @@ public class ReturnController {
 	@GetMapping("/get-comparison-report") // Get Comparison Report
 	public ResponseEntity<String> getComparisonReport() {
 
-		String userName = "GSTG2G18";
+		String response = registrationServiceImpl.processDocumentsHim(USERNAME);
 
-		String response = registrationServiceImpl.processDocumentsHim(userName);
+		return ResponseEntity.ok(response);
+	}
+	
+//	//@Scheduled(cron = "0 20 16 * * *")
+	@GetMapping("/process-documents-dh") // need to change the table--
+	public ResponseEntity<String> processDocumentsDh() {
+
+		String response = gstinServiceRegistration.processDocumentsDh(USERNAME);
+
+		return ResponseEntity.ok(response);
+	}
+	
+	@GetMapping("/get-normal-taxpayer") // Get Normal Tax Payer
+	public ResponseEntity<String> getNormalTaxPayer() {
+
+		String response = registrationServiceImpl.getNormalTaxPayerPre(USERNAME);
+
+		return ResponseEntity.ok(response);
+	}
+	
+	@GetMapping("/get-tds-tcs-taxpayer") // Get Normal Tax Payer
+	public ResponseEntity<String> getTdsTcs() {
+
+		String response = registrationServiceImpl.getTdsTcsTaxPayerPre(USERNAME);
+
+		return ResponseEntity.ok(response);
+	}
+	
+	@GetMapping("/GetEntityEnforcementOfficer") // Get Normal Tax Payer
+	public ResponseEntity<String> GetEntityEnforcementOfficer() {
+
+		String response = registrationServiceImpl.GetEntityEnforcementOfficer(USERNAME);
 
 		return ResponseEntity.ok(response);
 	}
 	
 	
-	@GetMapping("/process-documents-dh") // need to change the table--
-	public ResponseEntity<String> processDocumentsDh() {
+	@GetMapping("/GetLedgerItcOnly") //LEDGER ITC ONLY
+	public ResponseEntity<String> GetLedgerItcOnly() {
 
-		String userName = "GSTG2G18";
-
-		String response = gstinServiceRegistration.processDocumentsDh(userName);
+		String response = registrationServiceImpl.GetLedgerItcOnly(USERNAME);
 
 		return ResponseEntity.ok(response);
 	}

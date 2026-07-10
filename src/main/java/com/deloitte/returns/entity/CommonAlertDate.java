@@ -23,7 +23,7 @@ public class CommonAlertDate {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Long id;
+	private Long Id;
 
 	private String formattedStartDateTime;
 	private String year;

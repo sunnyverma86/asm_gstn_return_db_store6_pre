@@ -5,7 +5,7 @@ let reportTable = null;
 PAGE LOAD
 ==================================================
 */
-$(document).ready(function () {
+$(document).ready(function() {
 
     if ($("#reportTable").length) {
 
@@ -29,13 +29,16 @@ SIDEBAR NAVIGATION
 ==================================================
 */
 function showSection(section) {
-
     $("#dashboardSection").hide();
     $("#reportSection").hide();
     $("#lastUpdateSection").hide();
     $("#mismatchSection").hide();
     $("#statisticsSection").hide();
     $("#healthSection").hide();
+    $("#returnOnFlySection").hide();
+    $("#crnReportSection").hide();
+    $("#registrationReportSection").hide();
+    $("#ledgerSection").hide();
 
     switch (section) {
 
@@ -49,7 +52,7 @@ function showSection(section) {
 
         case "lastUpdate":
             $("#lastUpdateSection").show();
-            loadLastUpdate();
+            loadReturnLastUpdate();   // Default API
             break;
 
         case "mismatch":
@@ -63,8 +66,167 @@ function showSection(section) {
         case "health":
             $("#healthSection").show();
             break;
+
+        case "returnOnFlySection":
+            $("#returnOnFlySection").show();
+            break;
+
+        case "ledger":
+
+            $("#ledgerSection").show();
+
+            break;
+
+
+
+        case "crnReport":
+
+            $("#dashboardSection").hide();
+            $("#reportSection").hide();
+            $("#lastUpdateSection").hide();
+            $("#mismatchSection").hide();
+            $("#statisticsSection").hide();
+            $("#healthSection").hide();
+            $("#returnOnFlySection").hide();
+            $("#crnReportSection").show();
+            break;
+
+        case "registrationReport":
+            $("#registrationReportSection").show();
+            break;
+
+
+        default:
+            $("#dashboardSection").show();
+            break;
     }
 }
+
+/*
+==================================================
+REGISTRATION REPORT DATATABLE
+==================================================
+*/
+
+let registrationReportTable = null;
+
+$(document).ready(function() {
+
+    if ($("#registrationReportTable").length) {
+
+        registrationReportTable = $("#registrationReportTable").DataTable({
+
+            pageLength: 25,
+            ordering: true,
+            searching: true,
+            responsive: true,
+            destroy: true
+
+        });
+
+    }
+
+});
+
+/*
+==================================================
+GENERATE REGISTRATION REPORT
+==================================================
+*/
+
+$(document).on("click", "#generateRegistrationBtn", function() {
+
+    let fromDate = $("#registrationFromDate").val();
+
+    let toDate = $("#registrationToDate").val();
+
+    if (!fromDate) {
+
+        alert("Select From Date");
+
+        return;
+
+    }
+
+    if (!toDate) {
+
+        alert("Select To Date");
+
+        return;
+
+    }
+
+    $("#registrationProcessingDiv").show();
+
+    $("#registrationSuccessDiv").hide();
+
+    $.ajax({
+
+        url: "/api/return-gstr/registration-report",
+
+        type: "POST",
+
+        contentType: "application/json",
+
+        data: JSON.stringify({
+
+            fromDate: fromDate,
+
+            toDate: toDate
+
+        }),
+
+        success: function(response) {
+
+            registrationReportTable.clear();
+
+            response.forEach(function(r) {
+
+                registrationReportTable.row.add([
+
+                    r.startDate,
+
+                    r.totalFetchArn,
+
+                    r.totalArnSuccess,
+
+                    r.totalArnFailure,
+
+                    r.totalFetchEntity,
+
+                    r.totalFetchSuccessEntity,
+
+                    r.totalFetchFailureEntity,
+
+                    r.insertCount
+
+                ]);
+
+            });
+
+            registrationReportTable.draw();
+
+            $("#registrationProcessingDiv").hide();
+
+            $("#registrationSuccessDiv")
+                .html("Registration Report Generated Successfully")
+                .show();
+
+        },
+
+        error: function(xhr) {
+
+            $("#registrationProcessingDiv").hide();
+
+            alert("Error generating Registration Report");
+
+            console.log(xhr.responseText);
+
+        }
+
+    });
+
+});
 
 
 /*
@@ -72,7 +234,7 @@ function showSection(section) {
 GENERATE REPORT
 ==================================================
 */
-$(document).on("click", "#generateBtn", function () {
+$(document).on("click", "#generateBtn", function() {
 
     let fromDate = $("#fromDate").val();
     let toDate = $("#toDate").val();
@@ -110,11 +272,11 @@ $(document).on("click", "#generateBtn", function () {
             ty: ty
         }),
 
-        success: function (response) {
+        success: function(response) {
 
             reportTable.clear();
 
-            response.forEach(function (r) {
+            response.forEach(function(r) {
 
                 let status =
                     Number(r.numFilesCnt || 0) === Number(r.jsonCount || 0)
@@ -148,7 +310,7 @@ $(document).on("click", "#generateBtn", function () {
                 .addClass("btn-success");
         },
 
-        error: function (xhr) {
+        error: function(xhr) {
 
             $("#processingDiv").hide();
 
@@ -172,20 +334,20 @@ $(document).on("click", "#generateBtn", function () {
 LAST UPDATE DASHBOARD
 ==================================================
 */
-function loadLastUpdate() {
+function loadLastUpdate(url) {
 
     $.ajax({
 
-        url: "/api/last-update",
+        url: url,
 
         type: "GET",
 
-        success: function (response) {
+        success: function(response) {
 
             let cardHtml = "";
             let tableHtml = "";
 
-            response.forEach(function (r) {
+            response.forEach(function(r) {
 
                 cardHtml += `
                     <div class="col-md-2 mb-3">
@@ -216,22 +378,18 @@ function loadLastUpdate() {
                         <td>${r.maxDate}</td>
                     </tr>
                 `;
+
             });
 
             $("#updateCards").html(cardHtml);
-
             $("#lastUpdateTable tbody").html(tableHtml);
-
-        },
-
-        error: function () {
-
-            console.log("Unable to load last update data");
 
         }
 
     });
+
 }
+
 
 
 /*
@@ -254,25 +412,25 @@ function downloadPdf() {
         },
         body: JSON.stringify(request)
     })
-    .then(response => response.blob())
-    .then(blob => {
+        .then(response => response.blob())
+        .then(blob => {
 
-        const url = window.URL.createObjectURL(blob);
+            const url = window.URL.createObjectURL(blob);
 
-        const a = document.createElement('a');
+            const a = document.createElement('a');
 
-        a.href = url;
+            a.href = url;
 
-        a.download = 'Report.pdf';
+            a.download = 'Report.pdf';
 
-        document.body.appendChild(a);
+            document.body.appendChild(a);
 
-        a.click();
+            a.click();
 
-        a.remove();
+            a.remove();
 
-        window.URL.revokeObjectURL(url);
-    });
+            window.URL.revokeObjectURL(url);
+        });
 }
 
 
@@ -296,25 +454,25 @@ function downloadExcel() {
         },
         body: JSON.stringify(request)
     })
-    .then(response => response.blob())
-    .then(blob => {
+        .then(response => response.blob())
+        .then(blob => {
 
-        const url = window.URL.createObjectURL(blob);
+            const url = window.URL.createObjectURL(blob);
 
-        const a = document.createElement('a');
+            const a = document.createElement('a');
 
-        a.href = url;
+            a.href = url;
 
-        a.download = 'Report.xlsx';
+            a.download = 'Report.xlsx';
 
-        document.body.appendChild(a);
+            document.body.appendChild(a);
 
-        a.click();
+            a.click();
 
-        a.remove();
+            a.remove();
 
-        window.URL.revokeObjectURL(url);
-    });
+            window.URL.revokeObjectURL(url);
+        });
 }
 
 
@@ -331,7 +489,7 @@ function loadDashboardSummary() {
 
         type: "GET",
 
-        success: function (response) {
+        success: function(response) {
 
             $("#totalReturns").text(response.totalReturns);
             $("#matchedCount").text(response.matchedCount);
@@ -342,12 +500,148 @@ function loadDashboardSummary() {
     });
 }
 
+/*
+==================================================
+CRN REPORT
+==================================================
+*/
+
+let crnReportTable = null;
+
+$(document).ready(function() {
+
+    if ($("#crnReportTable").length) {
+
+        crnReportTable = $("#crnReportTable").DataTable({
+            pageLength: 25,
+            ordering: true,
+            searching: true,
+            responsive: true,
+            destroy: true
+        });
+
+    }
+
+});
+
+
+/*
+==================================================
+GENERATE CRN REPORT
+==================================================
+*/
+
+$(document).on("click", "#generateCrnBtn", function() {
+
+    let fromDate = $("#crnFromDate").val();
+    let toDate = $("#crnToDate").val();
+    let caseType = $("#caseType").val();
+
+    if (!fromDate) {
+        alert("Please Select From Date");
+        return;
+    }
+
+    if (!toDate) {
+        alert("Please Select To Date");
+        return;
+    }
+
+    $("#crnProcessingDiv").show();
+
+    $("#crnSuccessDiv").hide();
+
+    $("#generateCrnBtn")
+        .prop("disabled", true)
+        .removeClass("btn-success")
+        .addClass("btn-secondary");
+
+
+    $.ajax({
+
+        url: "/api/return-gstr/crn-report",
+
+        type: "POST",
+
+        contentType: "application/json",
+
+        data: JSON.stringify({
+
+            fromDate: fromDate,
+
+            toDate: toDate,
+
+            caseType: caseType
+
+        }),
+
+        success: function(response) {
+
+            crnReportTable.clear();
+
+            response.forEach(function(r) {
+
+                let status =
+                    Number(r.downloadCount || 0) === Number(r.insertCount || 0)
+                        ? '<span class="badge bg-success">MATCHED</span>'
+                        : '<span class="badge bg-danger">MISMATCH</span>';
+
+                crnReportTable.row.add([
+
+                    r.startDate || '',
+
+                    r.caseType || '',
+
+                    r.downloadCount || 0,
+
+                    r.insertCount || 0,
+
+                    status
+
+                ]);
+
+            });
+
+            crnReportTable.draw();
+
+            $("#crnProcessingDiv").hide();
+
+            $("#crnSuccessDiv")
+                .html("CRN Report Generated Successfully")
+                .show();
+
+            $("#generateCrnBtn")
+                .prop("disabled", false)
+                .removeClass("btn-secondary")
+                .addClass("btn-success");
+
+        },
+
+        error: function(xhr) {
+
+            $("#crnProcessingDiv").hide();
+
+            $("#generateCrnBtn")
+                .prop("disabled", false)
+                .removeClass("btn-secondary")
+                .addClass("btn-success");
+
+            alert("Error while generating CRN Report");
+
+            console.log(xhr.responseText);
+
+        }
+
+    });
+
+});
+
 
 /*
 ==================================================
 RUN DOWNLOAD API
 ==================================================
-*/
+
 function triggerDownload(ty) {
 
     let apiMap = {
@@ -374,7 +668,16 @@ function triggerDownload(ty) {
         "R98A": "/common/gstr/R98A",
 
         "R10": "/common/gstr/R10",
-        "R11": "/common/gstr/R11"
+        "R11": "/common/gstr/R11",
+        // CRN
+        "CRN": "/api/crn/process-crn-scheduler",
+
+        // Registration
+        "REGISTRATION": "/api/registration/complete-registration-automation-final-verdict",
+
+        // E-Way Bill
+          "PARTA": "http://10.79.1.225:8063/EwayBill/schedule-PARTA",
+          "PARTB": "http://10.79.1.225:8063/EwayBill/schedule-PARTB"
     };
 
     let url = apiMap[ty];
@@ -395,7 +698,7 @@ function triggerDownload(ty) {
 
         type: "GET",
 
-        beforeSend: function () {
+        beforeSend: function() {
 
             $("body").append(`
                 <div id="loadingOverlay"
@@ -417,16 +720,17 @@ function triggerDownload(ty) {
             `);
         },
 
-        success: function (response) {
+        success: function(response) {
 
             $("#loadingOverlay").remove();
 
             alert("Success\n\n" + response);
 
-            loadLastUpdate();
+            // loadLastUpdate();
+            loadReturnLastUpdate();
         },
 
-        error: function (xhr) {
+        error: function(xhr) {
 
             $("#loadingOverlay").remove();
 
@@ -435,3 +739,259 @@ function triggerDownload(ty) {
 
     });
 }
+
+
+*/
+
+
+
+
+
+function loadReturnLastUpdate() {
+
+    loadLastUpdate("/api/last-update");
+
+}
+
+function loadCrnLastUpdate() {
+
+    loadLastUpdate("/api/last-update-crn");
+
+}
+
+function loadRegistrationLastUpdate() {
+
+    loadLastUpdate("/api/last-update-registration");
+
+}
+
+function loadEwayBillLastUpdate() {
+
+    loadLastUpdate("/api/last-update-eway-bill");
+
+}
+
+$(document).on("click", "#ledgerSubmitBtn", function () {
+
+    let action = $("#ledgerAction").val();
+    let fr_dt = $("#ledgerFromDate").val();
+    let to_dt = $("#ledgerToDate").val();
+
+    if (fr_dt === "") {
+        alert("Select From Date");
+        return;
+    }
+
+    if (to_dt === "") {
+        alert("Select To Date");
+        return;
+    }
+
+    $("#ledgerSubmitBtn").hide();
+
+    $("#ledgerLoader").show();
+
+    $("#ledgerSuccess").hide();
+
+    $("#ledgerError").hide();
+
+    $.ajax({
+
+        url: "/common/ledger/schedule-ledger-on-automatic",
+
+        type: "GET",
+
+        data: {
+
+            action: action,
+            fr_dt: fr_dt,
+            to_dt: to_dt
+
+        },
+
+        success: function (response) {
+
+            $("#ledgerLoader").hide();
+
+            $("#ledgerSuccess")
+                .html(response)
+                .show();
+
+            $("#ledgerSubmitBtn").show();
+
+        },
+
+        error: function (xhr) {
+
+            $("#ledgerLoader").hide();
+
+            $("#ledgerError")
+                .html(xhr.responseText)
+                .show();
+
+            $("#ledgerSubmitBtn").show();
+
+        }
+
+    });
+
+});
+
+
+function triggerDownload(ty) {
+
+    let apiMap = {
+
+        "CM8": "/common/gstr/CM8",
+        "payment": "/common/gstr/payment",
+
+        "R1": "/common/gstr/R1",
+        "R1A": "/common/gstr/R1A",
+
+        "R2B": "/common/gstr/R2B",
+        "R3B": "/common/gstr/R3B",
+
+        "R4": "/common/gstr/R4",
+        "R5": "/common/gstr/R5",
+        "R6": "/common/gstr/R6",
+        "R7": "/common/gstr/R7",
+        "R8": "/common/gstr/R8",
+
+        "R9": "/common/gstr/R9",
+        "R9A": "/common/gstr/R9A",
+        "R9C": "/common/gstr/R9C",
+
+        "R98A": "/common/gstr/R98A",
+
+        "R10": "/common/gstr/R10",
+        "R11": "/common/gstr/R11",
+
+        // CRN
+        "CRN": "/api/crn/process-crn-scheduler",
+
+        // Registration
+        "REGISTRATION": "/api/registration/complete-registration-automation-final-verdict",
+
+        // E-Way Bill
+        "PARTA": "http://10.79.1.225:8063/EwayBill/schedule-PARTA",
+        "PARTB": "http://10.79.1.225:8063/EwayBill/schedule-PARTB"
+    };
+
+    let url = apiMap[ty];
+
+    if (!url) {
+        alert("API not configured for : " + ty);
+        return;
+    }
+
+    if (!confirm("Run Download Process For " + ty + " ?")) {
+        return;
+    }
+
+    $("body").append(`
+        <div id="loadingOverlay"
+             style="
+                position:fixed;
+                top:0;
+                left:0;
+                width:100%;
+                height:100%;
+                background:rgba(0,0,0,.5);
+                z-index:9999;
+                display:flex;
+                justify-content:center;
+                align-items:center;
+                color:white;
+                font-size:22px;">
+             Processing ${ty}...
+        </div>
+    `);
+
+    // PARTA / PARTB -> Authenticate first
+    if (ty === "PARTA" || ty === "PARTB") {
+
+        $.ajax({
+
+            url: "http://10.79.1.225:8063/EwayBill/authenticate",
+
+            type: "GET",
+
+            success: function() {
+
+                $("#loadingOverlay").html("Authentication Successful.<br>Waiting 30 seconds...");
+
+                setTimeout(function() {
+
+                    $.ajax({
+
+                        url: url,
+
+                        type: "GET",
+
+                        success: function(response) {
+
+                            $("#loadingOverlay").remove();
+
+                            alert("Success\n\n" + response);
+
+                            loadReturnLastUpdate();
+
+                        },
+
+                        error: function(xhr) {
+
+                            $("#loadingOverlay").remove();
+
+                            alert("Failed : " + xhr.responseText);
+
+                        }
+
+                    });
+
+                }, 30000);
+
+            },
+
+            error: function(xhr) {
+
+                $("#loadingOverlay").remove();
+
+                alert("Authentication Failed : " + xhr.responseText);
+
+            }
+
+        });
+
+    } else {
+
+        // Existing flow for all other APIs
+        $.ajax({
+
+            url: url,
+
+            type: "GET",
+
+            success: function(response) {
+
+                $("#loadingOverlay").remove();
+
+                alert("Success\n\n" + response);
+
+                loadReturnLastUpdate();
+
+            },
+
+            error: function(xhr) {
+
+                $("#loadingOverlay").remove();
+
+                alert("Failed : " + xhr.responseText);
+
+            }
+
+        });
+
+    }
+}
+
+

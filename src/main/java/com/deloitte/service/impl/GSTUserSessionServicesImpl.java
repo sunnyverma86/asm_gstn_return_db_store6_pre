@@ -67,7 +67,7 @@ public class GSTUserSessionServicesImpl {
 		return gstUserSession;
 	}
 
-	private void createRequestBodyForAuth(String appKey, String encryptedPassword, GSTUserSession gSTUserSession,
+	private void createRequestBodyForAuthOld(String appKey, String encryptedPassword, GSTUserSession gSTUserSession,
 			MasterData masterData, APIDetails apiDetails) {
 		GSTAuthenticationInputBean gstAuthenticationInputBean = new GSTAuthenticationInputBean();
 		gstAuthenticationInputBean.setAction(apiDetails.getApiAction());
@@ -89,5 +89,50 @@ public class GSTUserSessionServicesImpl {
 
 	}
 
+	private void createRequestBodyForAuth(String appKey, String encryptedPassword, GSTUserSession gSTUserSession,
+			MasterData masterData, APIDetails apiDetails) {
+
+		GSTAuthenticationInputBean gstAuthenticationInputBean = new GSTAuthenticationInputBean();
+		gstAuthenticationInputBean.setAction(apiDetails.getApiAction());
+		gstAuthenticationInputBean.setUsername(gSTUserSession.getUserName());
+		gstAuthenticationInputBean.setPassword(encryptedPassword);
+		gstAuthenticationInputBean.setAppKey(appKey);
+
+		GSTAuthenticationResponseBean response = null;
+
+		for (int attempt = 1; attempt <= 10; attempt++) {
+
+			log.info("Authentication Attempt : {}", attempt);
+
+			response = gstUserSessionServicesSupport.doAuth(apiDetails, gstAuthenticationInputBean, masterData);
+
+			// Success
+			if (response != null && !"0".equals(response.getStatus_cd())) {
+
+				log.info("Authentication Successful on Attempt {}", attempt);
+
+				gSTUserSession.setSek(response.getSek());
+				gSTUserSession.setAuthToken(response.getAuth_token());
+
+				gSTUserSessionRepository.save(gSTUserSession);
+
+				return;
+			}
+
+			// Failure
+			if (response != null && response.getError() != null) {
+				log.error("Attempt {} Failed : {}", attempt, response.getError().get("message"));
+			} else {
+				log.error("Attempt {} Failed : No Response from GST", attempt);
+			}
+			try {
+				Thread.sleep(1000); // 1 second
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+		}
+
+		throw new RuntimeException("GST Authentication failed after 10 attempts.");
+	}
 
 }

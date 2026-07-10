@@ -26,7 +26,7 @@ public class SftpUtil {
 	private static final String USERNAME = "cot";
 	private static final String PASSWORD = "Passw0rd@123#";
 
-	private static final String BASE_PATH = "/var/gst_files/GST_FILES/Return_Auto/";
+	private static final String BASE_PATH = "/database/GST_FILES/Return_Auto/";
 
 	public static String uploadFile(File file, String folderName, String date) {
 

@@ -68,6 +68,15 @@ public class LedgerInitialJson {
 
     @Column(name = "is_success")
     private Boolean isSuccess;
+    
+    @Column(name = "priority")
+    private Integer priority;
+    
+    @Column(name = "owner", length = 20)
+    private String owner;
+    
+	@Column(name = "counter_attempt")
+	private Integer counterAttempt;
 
     @Column(name = "msg", columnDefinition = "TEXT")
     private String msg;

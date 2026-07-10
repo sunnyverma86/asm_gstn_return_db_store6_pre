@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+	<meta charset="UTF-8">
+	<title>GST ASMT-10</title>
+
+	<style>
+		body {
+			font-family: "Times New Roman", serif;
+			font-size: 14px;
+			margin: 40px;
+		}
+
+		.page {
+			width: 800px;
+			margin: auto;
+		}
+
+		.header {
+			position: relative;
+			text-align: center;
+		}
+
+		.logo {
+			position: absolute;
+			right: 0;
+			top: 0;
+			width: 70px;
+		}
+
+		.title {
+			font-weight: bold;
+			font-size: 18px;
+		}
+
+		.subtitle {
+			font-style: italic;
+		}
+
+		.details {
+			margin-top: 30px;
+			line-height: 28px;
+		}
+
+		.notice-title {
+			text-align: center;
+			font-weight: bold;
+			margin-top: 35px;
+			margin-bottom: 25px;
+		}
+
+		.body {
+			margin-top: 20px;
+			text-align: justify;
+			line-height: 24px;
+		}
+
+		.signature {
+			width: 250px;
+			float: right;
+			margin-top: 70px;
+			text-align: left;
+		}
+
+		.footer {
+			clear: both;
+			text-align: center;
+			margin-top: 120px;
+		}
+	</style>
+
+</head>
+
+<body>
+
+	<div class="page">
+
+		<div class="header">
+
+			<img th:src="@{/images/logo.png}" class="logo" />
+
+			<div class="title">
+				FORM GST ASMT-10
+			</div>
+
+			<div class="subtitle">
+				[See rule 99(1)]
+			</div>
+
+		</div>
+
+		<div class="details">
+
+			Reference No:
+			<span th:text="${referenceNo}"></span>
+
+			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+			Date:
+			<span th:text="${date}"></span>
+
+			<br>
+
+			To _____________________
+
+			GSTIN:
+			<span th:text="${gstin}"></span>
+
+			<br>
+
+			Name:
+			<span th:text="${name}"></span>
+
+			<br>
+
+			Address:
+			<span th:text="${address}"></span>
+
+			<br><br>
+
+			Tax period:
+			<span th:text="${taxPeriod}"></span>
+
+		</div>
+
+		<div class="notice-title">
+			Notice for intimating discrepancies in the return after scrutiny
+		</div>
+
+		<div class="body">
+
+			This is to inform that during scrutiny of the return for the tax period
+			referred to above, the following discrepancies have been noticed.
+
+			<br><br>
+
+			&lt;&lt;DEF&gt;&gt;
+
+			<br><br>
+
+			You are hereby directed to explain the reasons for the alleged
+			discrepancies by __________ (date). If no explanation is received by the
+			aforesaid date, it will be presumed that you have admitted the same and
+			the amount and proceedings in accordance with law may be initiated
+			against you without making any further reference to you in this regard.
+
+		</div>
+
+		<div class="signature">
+
+			Signature
+
+			<br>
+
+			Name
+
+			<br>
+
+			Designation
+
+		</div>
+
+		<div class="footer">
+			1
+		</div>
+
+	</div>
+
+</body>
+
+</html>

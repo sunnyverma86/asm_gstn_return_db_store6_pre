@@ -23,12 +23,9 @@ public class SchedularService {
 	@Value("${server.port}")
 	private String serverPort;
 
-	@Scheduled(fixedDelay = 3 * 60 * 60 * 1000) // 3 hours delay
+//	@Scheduled(fixedDelay = 3 * 60 * 60 * 1000) // 3 hours delay
 	public void hitUrl() {
 		String url = "http://" + getLocalIp() + ":" + serverPort + "/common/userSession/authenticate/GSTG2G18";
-		
-		// String url = "http://10.79.1.152:" + serverPort +
-		// "/common/userSession/authenticate/GSTG2G18";
 		LocalDateTime now = LocalDateTime.now();
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 		String formattedNow = now.format(formatter);

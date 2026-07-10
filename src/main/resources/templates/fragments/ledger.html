@@ -1,0 +1,76 @@
+<div th:fragment="ledgerSection">
+
+    <div class="card shadow">
+
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Ledger Scheduler</h5>
+        </div>
+
+        <div class="card-body">
+
+            <div class="row">
+
+                <div class="col-md-3">
+                    <label>Action</label>
+
+                    <select id="ledgerAction" class="form-select">
+                        <option value="ITC">ITC</option>
+                        <option value="TAX">TAX</option>
+                        <option value="CASH">CASH</option>
+                        <option value="NRTN">NRTN</option>
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label>From Date</label>
+                    <input type="date"
+                           id="ledgerFromDate"
+                           class="form-control">
+                </div>
+
+                <div class="col-md-3">
+                    <label>To Date</label>
+                    <input type="date"
+                           id="ledgerToDate"
+                           class="form-control">
+                </div>
+
+                <div class="col-md-3 d-flex align-items-end">
+
+                    <button
+                        id="ledgerSubmitBtn"
+                        class="btn btn-success w-100">
+
+                        Submit
+
+                    </button>
+
+                </div>
+
+            </div>
+
+            <hr>
+
+            <div id="ledgerLoader"
+                 class="alert alert-warning"
+                 style="display:none">
+
+                Processing... Please Wait...
+
+            </div>
+
+            <div id="ledgerSuccess"
+                 class="alert alert-success"
+                 style="display:none">
+            </div>
+
+            <div id="ledgerError"
+                 class="alert alert-danger"
+                 style="display:none">
+            </div>
+
+        </div>
+
+    </div>
+
+</div>

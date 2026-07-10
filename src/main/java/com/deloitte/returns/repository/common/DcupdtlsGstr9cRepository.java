@@ -12,4 +12,6 @@ public interface DcupdtlsGstr9cRepository extends JpaRepository<DcupdtlsGstr9c, 
 
 	Page<DcupdtlsGstr9c> findByIsProcessedNullOrIsProcessedFalse(Pageable pageable);
 
+	Page<DcupdtlsGstr9c> findByIsProcessedNullOrIsProcessedFalseAndCounterAttemptLessThan(int i, Pageable pageable);
+
 }

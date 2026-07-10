@@ -1,0 +1,223 @@
+<div th:fragment="gstr3bReturn">
+
+	<div class="card shadow border-danger">
+
+		<div class="card-header bg-danger text-white">
+
+			<div class="row">
+
+				<div class="col-md-8">
+					<h5 class="mb-0">
+						GSTR3B Return Dashboard
+					</h5>
+				</div>
+
+			</div>
+
+		</div>
+
+		<div class="card-body">
+
+			<div class="row mb-3">
+
+				<div class="col-md-4">
+
+					<label class="form-label fw-bold">
+						GSTIN
+					</label>
+
+					<input type="text" id="flyGstin" class="form-control" placeholder="Enter GSTIN">
+
+				</div>
+
+				<div class="col-md-3">
+
+					<label class="form-label fw-bold">
+						Financial Year
+					</label>
+
+					<select id="flyFy" class="form-select">
+
+						<option value="2025-2026">
+							2025-2026
+						</option>
+
+						<option value="2024-2025">
+							2024-2025
+						</option>
+
+					</select>
+
+				</div>
+
+				<div class="col-md-2 d-flex align-items-end">
+
+					<button class="btn btn-success w-100" id="searchGstr3bBtn">
+
+						Search
+
+					</button>
+
+				</div>
+				
+				
+
+			</div>
+
+			<div id="gstr3bLoading" class="alert alert-info" style="display:none">
+
+				Fetching Return Data...
+
+			</div>
+
+			<div class="table-responsive">
+
+				<table id="gstr3bTable" class="table table-bordered table-striped table-hover table-sm text-center">
+
+					<thead>
+
+						<tr>
+
+							<th rowspan="2">MONTH</th>
+							<th rowspan="2">DATE OF FILING</th>
+							<th rowspan="2">TURNOVER</th>
+
+							<th colspan="4">OUTPUT TAX LIABILITY</th>
+
+							<th colspan="3">
+								REVERSE CHARGE LIABILITY
+							</th>
+
+							<th colspan="3">
+								ITC Availed
+							</th>
+
+							<th colspan="3">
+								ITC REVERSE
+							</th>
+
+							<th colspan="4">
+								NET ITC AVAILABLE
+							</th>
+
+							<th colspan="4">
+								TAX PAID IN CASH (RC)
+							</th>
+
+							<th colspan="7">
+								PAYMENT THROUGH ITC
+							</th>
+
+							<th colspan="7">
+								CASH PAYMENT
+							</th>
+
+						</tr>
+
+						<tr>
+
+							<!-- TAX LIABILITY -->
+
+							<th>IGST</th>
+							<th>CGST</th>
+							<th>SGST</th>
+							<th>CESS</th>
+
+							<!-- RC -->
+
+							<th>IGST</th>
+							<th>CGST</th>
+							<th>SGST</th>
+
+							<!-- ITC AVAIL -->
+
+							<th>IGST</th>
+							<th>CGST</th>
+							<th>SGST</th>
+
+							<!-- ITC REVERSE -->
+
+							<th>IGST</th>
+							<th>CGST</th>
+							<th>SGST</th>
+
+							<!-- NET ITC -->
+
+							<th>IGST</th>
+							<th>CGST</th>
+							<th>SGST</th>
+							<th>CESS</th>
+
+							<!-- RC CASH -->
+
+							<th>IGST</th>
+							<th>CGST</th>
+							<th>SGST</th>
+							<th>CESS</th>
+
+							<!-- ITC PAYMENT -->
+
+							<th>IGST</th>
+							<th>CGST</th>
+							<th>SGST</th>
+							<th>CESS</th>
+							<th>INTEREST</th>
+							<th>LATE FEE</th>
+							<th>TOTAL</th>
+
+							<!-- CASH PAYMENT -->
+
+							<th>IGST</th>
+							<th>CGST</th>
+							<th>SGST</th>
+							<th>CESS</th>
+							<th>INTEREST</th>
+							<th>LATE FEE</th>
+							<th>TOTAL</th>
+
+						</tr>
+
+					</thead>
+
+					<tbody>
+
+					</tbody>
+
+				</table>
+
+			</div>
+
+		</div>
+
+	</div>
+
+</div>
+
+<style>
+	#gstr3bTable {
+		white-space: nowrap;
+		font-size: 12px;
+	}
+
+	#gstr3bTable thead th {
+		background: #0d6efd;
+		color: white;
+		text-align: center;
+		vertical-align: middle;
+		position: sticky;
+		top: 0;
+		z-index: 10;
+	}
+
+	#gstr3bTable tbody td {
+		vertical-align: middle;
+	}
+
+	.table-responsive {
+		max-height: 700px;
+	}
+
+	.card {
+		border-radius: 12px;
+	}
+</style>

@@ -1,7 +1,6 @@
 package com.deloitte.controller;
 
 import java.io.UnsupportedEncodingException;
-import java.time.LocalDateTime;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -11,7 +10,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.deloitte.common.entity.GSTUserSession;
 import com.deloitte.returns.service.GstUserSessionServices;
 import com.deloitte.service.impl.CommonCrnServiceImpl;
 import com.deloitte.service.support.crn.CommonCrnServicePreImpl;
@@ -37,9 +35,46 @@ public class CrnController {
 	protected GstUserSessionServices gstUserSessionServices;
 
 	private static final String USERNAME = "GSTG2G18";
+	
+	
+	/**
+	 * FINAL VERDICT
+	 */
+	@Scheduled(cron = "0 10 8 * * *")
+	@GetMapping("/process-crn-scheduler")
+	public void processCrnScheduler() {
+
+		log.info("========== CRN Scheduler Started ==========");
+
+		try {
+
+			// Session Validation
+			if (gstUserSessionServices.isSessionExpired(USERNAME)) {
+				log.error("SESSION EXPIRED BEFORE 6 HOUR");
+				return;
+			}
+
+			// STEP 1
+			log.info("Starting Automatic CRN Processing...");
+			String response1 = commonCrnServiceImpl.processCrnAutomatically();
+			log.info("Automatic CRN Processing Completed: {}", response1);
+
+			// STEP 2 (starts only after STEP 1 completes)
+			log.info("Starting Pending CRN Processing...");
+			String response2 = commonCrnServicePreImpl.processPendingCrns();
+			log.info("Pending CRN Processing Completed: {}", response2);
+
+		} catch (Exception e) {
+			log.error("CRN Scheduler Failed", e);
+		}
+
+		log.info("========== CRN Scheduler Finished ==========");
+	}
+	
+	
 
 	// ===========Download CRN data based on user name and time range====//
-	@Scheduled(cron = "0 10 3 * * *")
+	// @Scheduled(cron = "0 10 3 * * *")
 	@GetMapping("/process-crn-automatically")
 	public String processCrnAutomatically() throws UnsupportedEncodingException {
 
@@ -59,7 +94,8 @@ public class CrnController {
 
 		return response;
 	}
-	@Scheduled(cron = "0 40 3 * * *")
+
+	// @Scheduled(cron = "0 40 3 * * *")
 	@GetMapping("/process-pending")
 	public ResponseEntity<String> processPendingCrn() {
 
@@ -91,6 +127,8 @@ public class CrnController {
 			return ResponseEntity.internalServerError().body("CRN processing failed: " + e.getMessage());
 		}
 	}
+
+	
 
 	/**
 	 * SINGLE CLICK COMPLETE FLOW

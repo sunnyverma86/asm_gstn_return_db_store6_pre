@@ -30,7 +30,7 @@ public class GSTUserSession {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
-	
+
 	@Column
 	private String userName;
 	@Column
@@ -49,16 +49,38 @@ public class GSTUserSession {
 	@Column(name = "updated_date_time")
 	private LocalDateTime updatedDateTime;
 
-	@PrePersist
-	protected void onCreate() {
-		authDateTime = LocalDateTime.now();
-		createDateTime = LocalDateTime.now();
-		updatedDateTime = LocalDateTime.now();
-	}
+	@Column(name = "failed_attempt")
+	private Integer failedAttempt = 0;
+
+	@Column(name = "retry_round")
+	private Integer retryRound = 0;
+
+	@Column(name = "next_retry_time")
+	private LocalDateTime nextRetryTime;
+
+	@Column(name = "stop_for_today")
+	private Boolean stopForToday = false;
+
+	@Column(name = "expiry_time")
+	private LocalDateTime expiryTime;
 
 	@PreUpdate
 	protected void onUpdate() {
 		updatedDateTime = LocalDateTime.now();
+	}
+
+	@PrePersist
+	protected void onCreate() {
+
+		authDateTime = LocalDateTime.now();
+		createDateTime = LocalDateTime.now();
+		updatedDateTime = LocalDateTime.now();
+
+		expiryTime = LocalDateTime.now().plusHours(4);
+
+		failedAttempt = 0;
+		retryRound = 0;
+		stopForToday = false;
 	}
 
 	@Override

@@ -60,5 +60,8 @@ public class DcupdtlsGstr9c {
 	@Column(name = "insert_dt")
 	private Date insertDt;
 	
+	@Column(name = "counter_attempt") //
+	private int counterAttempt;
+	
 	
 }

@@ -50,6 +50,27 @@ public class ApiController {
 		return reportServiceImpl.getLastUpdateReport();
 
 	}
+	
+	@GetMapping("/last-update-crn")
+	public List<LastUpdateDTO> getLastUpdateCrnReport() {
+
+		return reportServiceImpl.getLastUpdateCrnReport();
+
+	}
+	
+	@GetMapping("/last-update-registration")
+	public List<LastUpdateDTO> getLastUpdateRegistrationReport() {
+
+		return reportServiceImpl.getLastUpdateRegistrationReport();
+
+	}
+	
+	@GetMapping("/last-update-eway-bill")
+	public List<LastUpdateDTO> getLastUpdateEwayBillReport() {
+
+		return reportServiceImpl.getLastUpdateEwayBillReport();
+
+	}
 
 	@PostMapping("/excel")
 	public void downloadExcel(@RequestBody ReportRequestDTO request, HttpServletResponse response) throws Exception {

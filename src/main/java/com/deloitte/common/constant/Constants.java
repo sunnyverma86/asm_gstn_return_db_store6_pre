@@ -69,5 +69,7 @@ public class Constants {
 	public static final String GET_RETURN_FILE_DETAIL_ARN_LIST_REGISRATION = "Get All Application Requests";
 	
 	public static final String GET_RETURN_FILE_DETAIL_Adjudication_APPEL=  "Get Return Appel Adjudication";
+	
+	public static final String ENFORCEMENTOFFICERGETENTITY = "ENFREGENT";
 
 }

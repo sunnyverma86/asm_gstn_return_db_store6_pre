@@ -211,6 +211,12 @@ INSERT INTO public.api_details(	create_date_time, updated_date_time,  api_action
 --Appeal - Get Case Data - Appeal Tax Department
 INSERT INTO public.api_details(	create_date_time, updated_date_time,  api_action, api_content_type, api_encryption, api_name, api_path, api_url_parameters, is_active) VALUES (now(), now(), 'GETCASEDATAPPEAL', 'application/json', 'false','Get Return Appeal Tax Department','/govtapi/v1.0/appeal', NULL, 'true');
 
+--BO-GSTR3B
+INSERT INTO public.api_details(	create_date_time, updated_date_time,  api_action, api_content_type, api_encryption, api_name, api_path, api_url_parameters, is_active) VALUES (now(), now(), 'ENFR3BDET', 'application/json', 'false','ENFR3BDET','/govtapi/v0.3/returns', NULL, 'true');
+
+--BO-Enforcement Officer - Get Entity
+INSERT INTO public.api_details(	create_date_time, updated_date_time,  api_action, api_content_type, api_encryption, api_name, api_path, api_url_parameters, is_active) VALUES (now(), now(), 'ENFREGENT', 'application/json', 'false','ENFREGENT','/govtapi/v1.0/registration', NULL, 'true');
+
 
 -- For testing purpose only 
 --INSERT INTO public.api_details(create_date_time, updated_date_time,  api_action, api_content_type, api_encryption, api_name, api_path, api_url_parameters, is_active) VALUES (now(), now(), 'FILECNT', 'application/json', 'false', 'Get Payment File Count', '/govtapi/v0.2/payment', NULL, 'true');

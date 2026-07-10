@@ -1,5 +1,6 @@
 package com.deloitte.service.impl;
 
+import java.time.format.DateTimeFormatter;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -10,6 +11,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
@@ -22,7 +26,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -41,19 +44,26 @@ import com.deloitte.common.constant.Constants;
 import com.deloitte.common.entity.APIDetails;
 import com.deloitte.common.entity.GSTUserSession;
 import com.deloitte.common.entity.MasterData;
+import com.deloitte.returns.entity.GstinCollectionDetailsOnTheFly;
 import com.deloitte.returns.entity.ReturnComparisonReportGstin;
 import com.deloitte.returns.entity.ReturnComparisonReportGstinJson;
-import com.deloitte.returns.entity.DownloadDocument.DcupdtlsGstr9c;
 import com.deloitte.returns.entity.DownloadDocument.FileNameDocument;
 import com.deloitte.returns.entity.DownloadDocument.RegisDcupdtlsTesting;
 import com.deloitte.returns.entity.DownloadDocument.RegistrationDownloadDocument;
+import com.deloitte.returns.entity.log.GstinCollectionDetails;
+import com.deloitte.returns.entity.log.LedgerInitialJson;
+import com.deloitte.returns.entity.log.TdsTcsList;
 import com.deloitte.returns.entity.registration.RegDocuments;
 import com.deloitte.returns.entity.registration.RentActivePpbzdtls;
+import com.deloitte.returns.repository.GstinCollectionDetailsOnTheFlyRepository;
+import com.deloitte.returns.repository.GstinCollectionDetailsRepository;
 import com.deloitte.returns.repository.RegDocumentsRepository;
 import com.deloitte.returns.repository.RegisDcupdtlsRepository;
 import com.deloitte.returns.repository.RegistrationDownloadDocumentRepository;
 import com.deloitte.returns.repository.ReturnComparisonReportGstinJsonRepository;
 import com.deloitte.returns.repository.ReturnComparisonReportGstinRepository;
+import com.deloitte.returns.repository.TdsTcsListRepository;
+import com.deloitte.returns.repository.common.LedgerInitialJsonRepository;
 import com.deloitte.returns.repositoryCommon.FileNameDocumentRepository;
 import com.deloitte.returns.service.AuthenticationHelper;
 import com.deloitte.returns.service.GstUserSessionServices;
@@ -114,7 +124,19 @@ public class RegistrationServiceImpl {
 	private ReturnComparisonReportGstinJsonRepository returnComparisonReportGstinJsonRepository;
 
 	@Autowired
+	private GstinCollectionDetailsRepository gstinCollectionDetailsRepository;
+
+	@Autowired
+	private TdsTcsListRepository tdsTcsListRepository;
+
+	@Autowired
 	private ReturnComparisonReportGstinRepository returnComparisonReportGstinRepository;
+
+	@Autowired
+	private GstinCollectionDetailsOnTheFlyRepository gstinCollectionDetailsOnTheFlyRepository;
+
+	@Autowired
+	private LedgerInitialJsonRepository ledgerInitialJsonRepository;
 
 	private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -1386,6 +1408,7 @@ public class RegistrationServiceImpl {
 		MasterData masterData = masterDataService.getMasterdatabyName(userName);
 
 		if (masterData == null) {
+
 			return "Master data not found";
 		}
 
@@ -1407,7 +1430,7 @@ public class RegistrationServiceImpl {
 				Pageable pageable = PageRequest.of(0, 500);
 
 				Page<ReturnComparisonReportGstinJson> page = returnComparisonReportGstinJsonRepository
-						.findByIsProcessedNullOrIsProcessedFalseAndCounterAttemptLessThan(4,pageable);
+						.findByIsProcessedNullOrIsProcessedFalseAndCounterAttemptLessThan(4, pageable);
 
 				if (page.isEmpty()) {
 
@@ -1561,4 +1584,731 @@ public class RegistrationServiceImpl {
 		}
 	}
 
+	public String getNormalTaxPayerPre(String userName) {
+
+		long startTime = System.currentTimeMillis();
+
+		log.info("Started getNormalTaxPayerPre for user={}", userName);
+
+		MasterData masterData = masterDataService.getMasterdatabyName(userName);
+
+		if (masterData == null) {
+			return "Master data not found";
+		}
+
+		GSTUserSession session = gstUserSessionServices.getUserSessionsByName(userName);
+
+		if (session == null) {
+			return "Session not authenticated";
+		}
+
+		ExecutorService executor = Executors.newFixedThreadPool(50);
+
+		AtomicInteger successCount = new AtomicInteger(0);
+		AtomicInteger failedCount = new AtomicInteger(0);
+
+		try {
+
+			while (true) {
+
+				Pageable pageable = PageRequest.of(0, 500);
+
+				Page<GstinCollectionDetails> page = gstinCollectionDetailsRepository
+						.findByIsMissingTrueAndCounterAttemptLessThan(4, pageable);
+
+				if (page.isEmpty()) {
+
+					log.info("No pending records found. Processing completed.");
+
+					break;
+				}
+
+				List<GstinCollectionDetails> records = page.getContent();
+
+				log.info("Fetched {} records", records.size());
+
+				List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+				for (GstinCollectionDetails doc : records) {
+
+					CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+
+						try {
+
+							processSingleGstinPre(masterData, session, doc);
+
+							successCount.incrementAndGet();
+
+						} catch (Exception ex) {
+
+							failedCount.incrementAndGet();
+
+							log.error("Failed GSTIN={}", doc.getGstin(), ex);
+
+							doc.setIsMissing(true);
+
+							doc.setCounterAttempt(doc.getCounterAttempt() == 0 ? 1 : doc.getCounterAttempt() + 1);
+
+							doc.setMsg(MAPPER.createObjectNode().put("message", "Fail"));
+
+							gstinCollectionDetailsRepository.save(doc);
+						}
+
+					}, executor);
+
+					futures.add(future);
+				}
+
+				CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+				log.info("Batch Completed. Records Processed={}", records.size());
+			}
+
+		} catch (Exception ex) {
+
+			log.error("Bulk processing failed", ex);
+
+		} finally {
+
+			executor.shutdown();
+
+			try {
+
+				if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+
+					executor.shutdownNow();
+				}
+
+			} catch (InterruptedException e) {
+
+				executor.shutdownNow();
+
+				Thread.currentThread().interrupt();
+			}
+		}
+
+		long totalTime = System.currentTimeMillis() - startTime;
+
+		log.info("Completed | Success={} | Failed={} | Time={} ms", successCount.get(), failedCount.get(), totalTime);
+
+		return "Success=" + successCount.get() + ", Failed=" + failedCount.get() + ", Time(ms)=" + totalTime;
+	}
+
+	public void processSingleGstinPre(MasterData masterData, GSTUserSession session, GstinCollectionDetails doc) {
+
+		try {
+
+			APIDetails apiDetails = apiDetailsImpl.findByName(Constants.GET_REGISTRATION_NORMAL_TAX_PAYER);
+
+			HttpHeaders headers = authenticationHelper.getDefaultHeaders(masterData, session.getAuthToken(),
+					apiDetails.getApiContentType());
+
+			Map<String, String> params = Map.of("id", doc.getGstin(), "action", apiDetails.getApiAction(), "state_cd",
+					masterData.getStateCd(), "idty", "GSTIN");
+
+			String apiPath = authenticationHelper
+					.getUriWithParam(authenticationHelper.getFullPath(masterData, apiDetails), params);
+
+			log.info("Calling API GSTIN={} Type={}", doc.getGstin(), "Normal");
+
+			GSTCommonResponseBean response = restClient.get(apiPath, GSTCommonResponseBean.class, headers);
+
+			if (response == null || response.getData() == null || response.getData().isBlank()) {
+
+				doc.setIsMissing(true);
+
+				doc.setCounterAttempt(doc.getCounterAttempt() == 0 ? 1 : doc.getCounterAttempt() + 1);
+
+				doc.setMsg(MAPPER.createObjectNode().put("message", "Fail"));
+
+				gstinCollectionDetailsRepository.save(doc);
+
+			}
+
+			byte[] decodedBytes = Base64.getDecoder().decode(response.getData());
+
+			String decodedJson = new String(decodedBytes, StandardCharsets.UTF_8);
+
+			JsonNode jsonNode = MAPPER.readTree(decodedJson);
+
+			doc.setJsondata(jsonNode);
+
+			doc.setIsMissing(false);
+			doc.setIssuccess(true);
+			doc.setInsertTm(LocalDateTime.now());
+
+			doc.setMsg(MAPPER.createObjectNode().put("message", "Success"));
+
+			if (doc.getCounterAttempt() == 0) {
+				doc.setCounterAttempt(0);
+			}
+
+			gstinCollectionDetailsRepository.save(doc);
+
+			log.info("Successfully processed GSTIN={} ", doc.getGstin());
+
+		} catch (Exception ex) {
+
+			log.error("Error GSTIN={} ", doc.getGstin(), ex);
+
+			doc.setIsMissing(true);
+
+			doc.setCounterAttempt(doc.getCounterAttempt() == 0 ? 1 : doc.getCounterAttempt() + 1);
+
+			doc.setMsg(MAPPER.createObjectNode().put("message", "Fail"));
+
+			gstinCollectionDetailsRepository.save(doc);
+
+			log.error("GSTIN={} Error={}", doc.getGstin(), ex.getMessage(), ex);
+		}
+	}
+
+	// ---------------------TDS-TCS--------------------------------------//
+	public String getTdsTcsTaxPayerPre(String userName) {
+
+		long startTime = System.currentTimeMillis();
+
+		log.info("Started getTdsTcsTaxPayerPre for user={}", userName);
+
+		MasterData masterData = masterDataService.getMasterdatabyName(userName);
+
+		if (masterData == null) {
+			return "Master data not found";
+		}
+
+		GSTUserSession session = gstUserSessionServices.getUserSessionsByName(userName);
+
+		if (session == null) {
+			return "Session not authenticated";
+		}
+
+		ExecutorService executor = Executors.newFixedThreadPool(50);
+
+		AtomicInteger successCount = new AtomicInteger(0);
+		AtomicInteger failedCount = new AtomicInteger(0);
+
+		try {
+
+			while (true) {
+
+				Pageable pageable = PageRequest.of(0, 500);
+
+				Page<TdsTcsList> page = tdsTcsListRepository.findByIsMissingTrueAndCounterAttemptLessThan(4, pageable);
+
+				if (page.isEmpty()) {
+
+					log.info("No pending records found. Processing completed.");
+
+					break;
+				}
+
+				List<TdsTcsList> records = page.getContent();
+
+				log.info("Fetched {} records", records.size());
+
+				List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+				for (TdsTcsList doc : records) {
+
+					CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+
+						try {
+
+							processSingleTdsTcsGstinPre(masterData, session, doc);
+
+							successCount.incrementAndGet();
+
+						} catch (Exception ex) {
+
+							failedCount.incrementAndGet();
+
+							log.error("Failed GSTIN={}", doc.getGstin(), ex);
+
+							doc.setIsMissing(true);
+
+							doc.setCounterAttempt(doc.getCounterAttempt() == 0 ? 1 : doc.getCounterAttempt() + 1);
+
+							doc.setErrorMessage("Fail");
+
+							tdsTcsListRepository.save(doc);
+						}
+
+					}, executor);
+
+					futures.add(future);
+				}
+
+				CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+				log.info("Batch Completed. Records Processed={}", records.size());
+			}
+
+		} catch (Exception ex) {
+
+			log.error("Bulk processing failed", ex);
+
+		} finally {
+
+			executor.shutdown();
+
+			try {
+
+				if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+
+					executor.shutdownNow();
+				}
+
+			} catch (InterruptedException e) {
+
+				executor.shutdownNow();
+
+				Thread.currentThread().interrupt();
+			}
+		}
+
+		long totalTime = System.currentTimeMillis() - startTime;
+
+		log.info("Completed | Success={} | Failed={} | Time={} ms", successCount.get(), failedCount.get(), totalTime);
+
+		return "Success=" + successCount.get() + ", Failed=" + failedCount.get() + ", Time(ms)=" + totalTime;
+	}
+
+	public void processSingleTdsTcsGstinPre(MasterData masterData, GSTUserSession session, TdsTcsList doc) {
+
+		try {
+
+			APIDetails apiDetails = apiDetailsImpl.findByName(Constants.GET_REGISTRATION_NORMAL_TAX_PAYER);
+
+			HttpHeaders headers = authenticationHelper.getDefaultHeaders(masterData, session.getAuthToken(),
+					apiDetails.getApiContentType());
+
+			String idty = "APLTD".equalsIgnoreCase(doc.getTy()) ? "UITD" : "UITC";
+
+			Map<String, String> params = Map.of("id", doc.getGstin(), "action", apiDetails.getApiAction(), "state_cd",
+					masterData.getStateCd(), "idty", idty);
+
+			String apiPath = authenticationHelper
+					.getUriWithParam(authenticationHelper.getFullPath(masterData, apiDetails), params);
+
+			log.info("Calling API GSTIN={} Type={}", doc.getGstin(), idty);
+
+			GSTCommonResponseBean response = restClient.get(apiPath, GSTCommonResponseBean.class, headers);
+
+			if (response == null || response.getData() == null || response.getData().isBlank()) {
+
+				doc.setIsMissing(true);
+
+				doc.setCounterAttempt(doc.getCounterAttempt() == 0 ? 1 : doc.getCounterAttempt() + 1);
+
+				doc.setErrorMessage("Fail");
+
+				tdsTcsListRepository.save(doc);
+
+			}
+
+			byte[] decodedBytes = Base64.getDecoder().decode(response.getData());
+
+			String decodedJson = new String(decodedBytes, StandardCharsets.UTF_8);
+
+			JsonNode jsonNode = MAPPER.readTree(decodedJson);
+
+			doc.setJsondata(jsonNode);
+
+			doc.setIsMissing(false);
+			doc.setIsSuccess("T");
+
+			if (doc.getCounterAttempt() == 0) {
+				doc.setCounterAttempt(0);
+			}
+
+			tdsTcsListRepository.save(doc);
+
+			log.info("Successfully processed GSTIN={} ", doc.getGstin());
+
+		} catch (Exception ex) {
+
+			log.error("Error GSTIN={} ", doc.getGstin(), ex);
+
+			doc.setIsMissing(true);
+
+			doc.setCounterAttempt(doc.getCounterAttempt() == 0 ? 1 : doc.getCounterAttempt() + 1);
+
+			doc.setErrorMessage("Fail");
+
+			tdsTcsListRepository.save(doc);
+
+			log.error("GSTIN={} Error={}", doc.getGstin(), ex.getMessage(), ex);
+		}
+	}
+
+	// ------------GET-ENTITY-ENFORECEMTN-OFFICER
+
+	public String GetEntityEnforcementOfficer(String userName) {
+
+		long startTime = System.currentTimeMillis();
+
+		log.info("Started GetEntityEnforcementOfficer for user={}", userName);
+
+		MasterData masterData = masterDataService.getMasterdatabyName(userName);
+
+		if (masterData == null) {
+			return "Master data not found";
+		}
+
+		GSTUserSession session = gstUserSessionServices.getUserSessionsByName(userName);
+
+		if (session == null) {
+			return "Session not authenticated";
+		}
+
+		ExecutorService executor = Executors.newFixedThreadPool(50);
+
+		AtomicInteger successCount = new AtomicInteger(0);
+		AtomicInteger failedCount = new AtomicInteger(0);
+
+		try {
+
+			while (true) {
+
+				Pageable pageable = PageRequest.of(0, 500);
+
+				Page<GstinCollectionDetailsOnTheFly> page = gstinCollectionDetailsOnTheFlyRepository
+						.findByIsMissingTrueAndCounterAttemptLessThan(4, pageable);
+
+				if (page.isEmpty()) {
+
+					log.info("No pending records found. Processing completed.");
+
+					break;
+				}
+
+				List<GstinCollectionDetailsOnTheFly> records = page.getContent();
+
+				log.info("Fetched {} records", records.size());
+
+				List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+				for (GstinCollectionDetailsOnTheFly doc : records) {
+
+					CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+
+						try {
+
+							processSingleEntityEnforcementOfficerGstinPre(masterData, session, doc);
+
+							successCount.incrementAndGet();
+
+						} catch (Exception ex) {
+
+							failedCount.incrementAndGet();
+
+							log.error("Failed GSTIN={}", doc.getGstin(), ex);
+
+							doc.setIsMissing(true);
+
+							doc.setCounterAttempt(doc.getCounterAttempt() == 0 ? 1 : doc.getCounterAttempt() + 1);
+
+							doc.setMsg(MAPPER.createObjectNode().put("message", "Fail"));
+
+							gstinCollectionDetailsOnTheFlyRepository.save(doc);
+						}
+
+					}, executor);
+
+					futures.add(future);
+				}
+
+				CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+				log.info("Batch Completed. Records Processed={}", records.size());
+			}
+
+		} catch (Exception ex) {
+
+			log.error("Bulk processing failed", ex);
+
+		} finally {
+
+			executor.shutdown();
+
+			try {
+
+				if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+
+					executor.shutdownNow();
+				}
+
+			} catch (InterruptedException e) {
+
+				executor.shutdownNow();
+
+				Thread.currentThread().interrupt();
+			}
+		}
+
+		long totalTime = System.currentTimeMillis() - startTime;
+
+		log.info("Completed | Success={} | Failed={} | Time={} ms", successCount.get(), failedCount.get(), totalTime);
+
+		return "Success=" + successCount.get() + ", Failed=" + failedCount.get() + ", Time(ms)=" + totalTime;
+	}
+
+	public void processSingleEntityEnforcementOfficerGstinPre(MasterData masterData, GSTUserSession session,
+			GstinCollectionDetailsOnTheFly doc) {
+
+		try {
+
+			APIDetails apiDetails = apiDetailsImpl.findByName(Constants.ENFORCEMENTOFFICERGETENTITY);
+
+			HttpHeaders headers = authenticationHelper.getDefaultHeadersEnforcement(masterData, session.getAuthToken(),
+					apiDetails.getApiContentType());
+
+//				Map<String, String> params = Map.of("id", doc.getGstin(), "action", apiDetails.getApiAction(), "state_cd",
+//						masterData.getStateCd(), "idty", idty);
+
+			Map<String, String> params = Map.of("id", doc.getGstin(), "action", "ENFREGENT", "state_cd",
+					masterData.getStateCd(), "idty", doc.getIdty());
+
+			String apiPath = authenticationHelper
+					.getUriWithParam(authenticationHelper.getFullPath(masterData, apiDetails), params);
+
+			log.info("Calling API GSTIN={} Type={}", doc.getGstin(), doc.getIdty());
+
+			GSTCommonResponseBean response = restClient.get(apiPath, GSTCommonResponseBean.class, headers);
+
+			if (response == null || response.getData() == null || response.getData().isBlank()) {
+
+				doc.setIsMissing(true);
+
+				doc.setCounterAttempt(doc.getCounterAttempt() == 0 ? 1 : doc.getCounterAttempt() + 1);
+
+				doc.setMsg(MAPPER.createObjectNode().put("message", "Fail"));
+
+				gstinCollectionDetailsOnTheFlyRepository.save(doc);
+
+			}
+
+			byte[] decodedBytes = Base64.getDecoder().decode(response.getData());
+
+			String decodedJson = new String(decodedBytes, StandardCharsets.UTF_8);
+
+			JsonNode jsonNode = MAPPER.readTree(decodedJson);
+
+			doc.setJsondata(jsonNode);
+
+			doc.setIsMissing(false);
+			doc.setIssuccess(true);
+			doc.setInsertTm(LocalDateTime.now());
+
+			doc.setMsg(MAPPER.createObjectNode().put("message", "Success"));
+
+			if (doc.getCounterAttempt() == 0) {
+				doc.setCounterAttempt(0);
+			}
+
+			gstinCollectionDetailsOnTheFlyRepository.save(doc);
+
+			log.info("Successfully processed GSTIN={} ", doc.getGstin());
+
+		} catch (Exception ex) {
+
+			log.error("Error GSTIN={} ", doc.getGstin(), ex);
+
+			doc.setIsMissing(true);
+
+			doc.setCounterAttempt(doc.getCounterAttempt() == 0 ? 1 : doc.getCounterAttempt() + 1);
+
+			doc.setMsg(MAPPER.createObjectNode().put("message", "Fail"));
+
+			gstinCollectionDetailsOnTheFlyRepository.save(doc);
+
+			log.error("GSTIN={} Error={}", doc.getGstin(), ex.getMessage(), ex);
+		}
+	}
+
+	// ------------GET-LEDGER-ITC-ONLY
+
+	public String GetLedgerItcOnly(String userName) {
+
+		long startTime = System.currentTimeMillis();
+
+		log.info("Started GetLedgerItcOnly for user={}", userName);
+
+		MasterData masterData = masterDataService.getMasterdatabyName(userName);
+
+		if (masterData == null) {
+			return "Master data not found";
+		}
+
+		GSTUserSession session = gstUserSessionServices.getUserSessionsByName(userName);
+
+		if (session == null) {
+			return "Session not authenticated";
+		}
+
+		ExecutorService executor = Executors.newFixedThreadPool(50);
+
+		AtomicInteger successCount = new AtomicInteger(0);
+		AtomicInteger failedCount = new AtomicInteger(0);
+
+		try {
+
+			while (true) {
+
+				Pageable pageable = PageRequest.of(0, 500);
+
+				Page<LedgerInitialJson> page = ledgerInitialJsonRepository
+						.findByIsSuccessIsNullAndCounterAttemptLessThan(4, pageable);
+
+				if (page.isEmpty()) {
+
+					log.info("No pending records found. Processing completed.");
+
+					break;
+				}
+
+				List<LedgerInitialJson> records = page.getContent();
+
+				log.info("Fetched {} records", records.size());
+
+				List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+				for (LedgerInitialJson doc : records) {
+
+					CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+
+						try {
+
+							processLedgerItcOnly(masterData, session, doc);
+
+							successCount.incrementAndGet();
+
+						} catch (Exception ex) {
+
+							failedCount.incrementAndGet();
+
+							log.error("Failed GSTIN={}", doc.getGstin(), ex);
+
+							doc.setCounterAttempt(doc.getCounterAttempt() == 0 ? 1 : doc.getCounterAttempt() + 1);
+
+							doc.setMsg("Fail");
+
+							ledgerInitialJsonRepository.save(doc);
+						}
+
+					}, executor);
+
+					futures.add(future);
+				}
+
+				CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+				log.info("Batch Completed. Records Processed={}", records.size());
+			}
+
+		} catch (Exception ex) {
+
+			log.error("Bulk processing failed", ex);
+
+		} finally {
+
+			executor.shutdown();
+
+			try {
+
+				if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+
+					executor.shutdownNow();
+				}
+
+			} catch (InterruptedException e) {
+
+				executor.shutdownNow();
+
+				Thread.currentThread().interrupt();
+			}
+		}
+
+		long totalTime = System.currentTimeMillis() - startTime;
+
+		log.info("Completed | Success={} | Failed={} | Time={} ms", successCount.get(), failedCount.get(), totalTime);
+
+		return "Success=" + successCount.get() + ", Failed=" + failedCount.get() + ", Time(ms)=" + totalTime;
+	}
+
+	public void processLedgerItcOnly(MasterData masterData, GSTUserSession session, LedgerInitialJson doc) {
+
+		try {
+
+			APIDetails apiDetails = apiDetailsImpl.findByName(Constants.GET_RETURN_LEDGER);
+
+			HttpHeaders headers = authenticationHelper.getDefaultHeadersEnforcement(masterData, session.getAuthToken(),
+					apiDetails.getApiContentType());
+			
+		
+		
+			//http://localhost:8019/common/gstr/scheduleLedger?action=ITC&fr_dt=01-04-2023&to_dt=31-03-2024
+
+			LocalDate fromDate = doc.getFrDt();
+			LocalDate toDate = doc.getToDt();
+
+			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+
+			Map<String, String> params = Map.of(
+			        "gstin", doc.getGstin(),
+			        "action", "ITC",
+			        "state_cd", masterData.getStateCd(),
+			        "fr_dt", fromDate.format(formatter),
+			        "to_dt", toDate.format(formatter)
+			);
+
+			String apiPath = authenticationHelper
+					.getUriWithParam(authenticationHelper.getFullPath(masterData, apiDetails), params);
+
+			log.info("Calling API GSTIN={} action={}", doc.getGstin(), "ITC");
+
+			GSTCommonResponseBean response = restClient.get(apiPath, GSTCommonResponseBean.class, headers);
+
+			if (response == null || response.getData() == null || response.getData().isBlank()) {
+
+				doc.setCounterAttempt(doc.getCounterAttempt() == 0 ? 1 : doc.getCounterAttempt() + 1);
+
+				doc.setMsg("Fail");
+
+				ledgerInitialJsonRepository.save(doc);
+
+			}
+
+			byte[] decodedBytes = Base64.getDecoder().decode(response.getData());
+
+			String decodedJson = new String(decodedBytes, StandardCharsets.UTF_8);
+
+			JsonNode jsonNode = MAPPER.readTree(decodedJson);
+
+			doc.setJsondata(jsonNode);
+
+			doc.setMsg("SUCCESS");
+			doc.setIsSuccess(true);
+
+			if (doc.getCounterAttempt() == 0) {
+				doc.setCounterAttempt(0);
+			}
+
+			ledgerInitialJsonRepository.save(doc);
+
+			log.info("Successfully processed GSTIN={} ", doc.getGstin());
+
+		} catch (Exception ex) {
+
+			log.error("Error GSTIN={} ", doc.getGstin(), ex);
+
+			doc.setMsg("Fail");
+
+			doc.setCounterAttempt(doc.getCounterAttempt() == 0 ? 1 : doc.getCounterAttempt() + 1);
+
+			ledgerInitialJsonRepository.save(doc);
+
+			log.error("GSTIN={} Error={}", doc.getGstin(), ex.getMessage(), ex);
+		}
+	}
 }

@@ -1,0 +1,139 @@
+<div th:fragment="crnReport">
+
+    <div class="card mt-3">
+
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                CRN Download vs Insert Report
+            </h5>
+        </div>
+
+        <div class="card-body">
+
+            <div class="row">
+
+                <!-- From Date -->
+                <div class="col-md-3">
+                    <label class="form-label">
+                        From Date
+                    </label>
+
+                    <input
+                            type="date"
+                            id="crnFromDate"
+                            class="form-control">
+                </div>
+
+                <!-- To Date -->
+                <div class="col-md-3">
+                    <label class="form-label">
+                        To Date
+                    </label>
+
+                    <input
+                            type="date"
+                            id="crnToDate"
+                            class="form-control">
+                </div>
+
+                <!-- Case Type -->
+                <div class="col-md-3">
+
+                    <label class="form-label">
+                        Case Type
+                    </label>
+
+                    <select
+                            id="caseType"
+                            class="form-select">
+
+                        <option value="RFUND">RFUND</option>
+
+                        <option value="ADJDT">ADJDT</option>
+
+                        <option value="ADJVP">ADJVP</option>
+
+                        <option value="ADJSR">ADJSR</option>
+
+                        <option value="APPEL">APPEL</option>
+
+                    </select>
+
+                </div>
+
+                <!-- Button -->
+                <div class="col-md-3">
+
+                    <label class="form-label">
+                        &nbsp;
+                    </label>
+
+                    <button
+                            id="generateCrnBtn"
+                            class="btn btn-success w-100">
+
+                        Generate Report
+
+                    </button>
+
+                </div>
+
+            </div>
+
+            <hr>
+
+            <div
+                    id="crnProcessingDiv"
+                    class="alert alert-warning"
+                    style="display:none">
+
+                <span class="spinner-border spinner-border-sm"></span>
+
+                Processing Report...
+
+            </div>
+
+            <div
+                    id="crnSuccessDiv"
+                    class="alert alert-success"
+                    style="display:none">
+
+                Report Generated Successfully.
+
+            </div>
+
+            <div class="table-responsive">
+
+                <table
+                        id="crnReportTable"
+                        class="table table-bordered table-striped table-hover">
+
+                    <thead class="table-dark">
+
+                    <tr>
+
+                        <th>START DATE</th>
+
+                        <th>CASE TYPE</th>
+
+                        <th>DOWNLOAD COUNT</th>
+
+                        <th>INSERT COUNT</th>
+
+                        <th>STATUS</th>
+
+                    </tr>
+
+                    </thead>
+
+                    <tbody></tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>

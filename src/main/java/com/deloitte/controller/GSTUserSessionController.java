@@ -23,6 +23,7 @@ public class GSTUserSessionController {
 
 	
 
+	
 	@GetMapping("/authenticate/{username}")
 	public ResponseEntity<GSTUserSession> authenticate(@PathVariable String username) {
 		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
@@ -33,78 +34,78 @@ public class GSTUserSessionController {
 		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
 	}
 	
-	@Scheduled(cron = "0 08 02 * * *")
+	@Scheduled(cron = "0 08 03 * * *")
 	public ResponseEntity<GSTUserSession> authenticateV2() {
 		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
 	}
 	
-	@Scheduled(cron = "0 01 03 * * *")
+	@Scheduled(cron = "0 01 05 * * *")
 	public ResponseEntity<GSTUserSession> authenticateV3() {
 		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
 	}
 	
-	@Scheduled(cron = "0 01 04 * * *")
+	@Scheduled(cron = "0 01 07 * * *")
 	public ResponseEntity<GSTUserSession> authenticateV4() {
 		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
 	}
 	
-	@Scheduled(cron = "0 01 05 * * *")
+	@Scheduled(cron = "0 33 10 * * *")
 	public ResponseEntity<GSTUserSession> authenticateV5() {
 		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
 	}
 	
-	@Scheduled(cron = "0 01 06 * * *")
+	@Scheduled(cron = "0 16 12 * * *")
 	public ResponseEntity<GSTUserSession> authenticateV6() {
 		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
 	}
 	
-	@Scheduled(cron = "0 01 07 * * *")
+	@Scheduled(cron = "0 01 15 * * *")
 	public ResponseEntity<GSTUserSession> authenticateV7() {
 		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
 	}
 	
-	@Scheduled(cron = "0 01 08 * * *")
+	@Scheduled(cron = "0 01 18 * * *")
 	public ResponseEntity<GSTUserSession> authenticateV8() {
 		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
 	}
 	
-	@Scheduled(cron = "0 01 09 * * *")
+	@Scheduled(cron = "0 01 21 * * *")
 	public ResponseEntity<GSTUserSession> authenticateV9() {
 		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
 	}
 	
-	@Scheduled(cron = "0 01 10 * * *")
+	@Scheduled(cron = "0 01 23 * * *")
 	public ResponseEntity<GSTUserSession> authenticateV10() {
 		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
 	}
-	
-	@Scheduled(cron = "0 01 11 * * *")
-	public ResponseEntity<GSTUserSession> authenticateV11() {
-		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
-	}
-	
-	@Scheduled(cron = "0 01 12 * * *")
-	public ResponseEntity<GSTUserSession> authenticate12() {
-		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
-	}
-	
-	@Scheduled(cron = "0 01 13 * * *")
-	public ResponseEntity<GSTUserSession> authenticate13() {
-		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
-	}
-	
-	@Scheduled(cron = "0 01 15 * * *")
-	public ResponseEntity<GSTUserSession> authenticate15() {
-		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
-	}
-	
-	@Scheduled(cron = "0 01 18 * * *")
-	public ResponseEntity<GSTUserSession> authenticate18() {
-		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
-	}
-	
-	@Scheduled(cron = "0 01 20 * * *")
-	public ResponseEntity<GSTUserSession> authenticate20() {
-		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
-	}
+//	
+//	@Scheduled(cron = "0 01 11 * * *")
+//	public ResponseEntity<GSTUserSession> authenticateV11() {
+//		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
+//	}
+//	
+//	@Scheduled(cron = "0 01 12 * * *")
+//	public ResponseEntity<GSTUserSession> authenticate12() {
+//		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
+//	}
+//	
+//	@Scheduled(cron = "0 01 13 * * *")
+//	public ResponseEntity<GSTUserSession> authenticate13() {
+//		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
+//	}
+//	
+//	@Scheduled(cron = "0 01 15 * * *")
+//	public ResponseEntity<GSTUserSession> authenticate15() {
+//		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
+//	}
+//	
+//	@Scheduled(cron = "0 01 18 * * *")
+//	public ResponseEntity<GSTUserSession> authenticate18() {
+//		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
+//	}
+//	
+//	@Scheduled(cron = "0 01 20 * * *")
+//	public ResponseEntity<GSTUserSession> authenticate20() {
+//		return new ResponseEntity<>(apiServices.createUserSession(username), HttpStatus.CREATED);
+//	}
 }

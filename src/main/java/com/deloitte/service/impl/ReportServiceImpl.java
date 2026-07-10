@@ -21,9 +21,14 @@ public class ReportServiceImpl {
 
 	public List<ReportResponseDTO> generateReport(ReportRequestDTO request) {
 
-		if ("PARTA".equalsIgnoreCase(request.getTy()) || "PARTB".equalsIgnoreCase(request.getTy())) {
+		if ("PARTA".equalsIgnoreCase(request.getTy()) ) {
 
 			return generateEwbReport(request);
+		}
+		
+		if ("PARTB".equalsIgnoreCase(request.getTy())) {
+
+			return generateEwbReportPartB(request);
 		}
 
 		if ("payment".equalsIgnoreCase(request.getTy())) {
@@ -183,6 +188,95 @@ public class ReportServiceImpl {
 
 		default -> throw new IllegalArgumentException("Unsupported TY : " + ty);
 		};
+	}
+
+	private List<ReportResponseDTO> generateEwbReportPartB(ReportRequestDTO request) {
+
+		long startTime = System.currentTimeMillis();
+
+		String jsonTable = "PARTA".equalsIgnoreCase(request.getTy()) ? "log.ewb_parta_initial_json"
+				: "log.ewb_partb_initial_json";
+
+		String sql = """
+				SELECT
+				    t1.dt,
+				    t1.gen_file_cnt,
+				    t1.file_num,
+				    t1.num_filescnt,
+				    t3.dt AS dt2,
+				    t3.file_number,
+				    t3.cntt
+				FROM
+				(
+				    SELECT
+				        to_date(A.dt,'DD-MM-YYYY') AS dt,
+				        A.gen_file_cnt,
+				        B.file_num,
+				        B.total_records AS num_filescnt
+				    FROM filecounter.ewb_count_data A
+				    LEFT JOIN filecounter.ewb_file_detail B
+				        ON A.id = B.return_file_count_id
+				    WHERE
+				        to_date(A.dt,'DD-MM-YYYY') BETWEEN ? AND ?
+				        AND A.is_success = TRUE
+				        AND A.ty = ?
+				) t1
+				LEFT JOIN
+				(
+				    SELECT
+				        to_date(dt,'DD-MM-YYYY') AS dt,
+				        file_number,
+				        count(ewb->'Ewb_no') AS cntt
+				    FROM %s
+				    LEFT JOIN LATERAL
+				        jsonb_array_elements(json_data->'ewb') AS ewb(value)
+				        ON TRUE
+				    WHERE
+				        to_date(dt,'DD-MM-YYYY') BETWEEN ? AND ?
+				    GROUP BY
+				        to_date(dt,'DD-MM-YYYY'),
+				        file_number
+				) t3
+				ON t1.dt = t3.dt
+				AND t1.file_num = t3.file_number
+				ORDER BY
+				    t1.dt DESC,
+				    t1.file_num DESC
+				""".formatted(jsonTable);
+
+		String logQuery = sql.replaceFirst("\\?", "'" + request.getFromDate() + "'")
+				.replaceFirst("\\?", "'" + request.getToDate() + "'").replaceFirst("\\?", "'" + request.getTy() + "'")
+				.replaceFirst("\\?", "'" + request.getFromDate() + "'")
+				.replaceFirst("\\?", "'" + request.getToDate() + "'");
+
+		log.info("PARTA/PARTB QUERY:\n{}", logQuery);
+
+		List<ReportResponseDTO> result = jdbcTemplate.query(sql, new Object[] { request.getFromDate(),
+				request.getToDate(), request.getTy(), request.getFromDate(), request.getToDate() }, (rs, rowNum) -> {
+
+					ReportResponseDTO dto = new ReportResponseDTO();
+
+					dto.setDt(rs.getDate("dt") != null ? rs.getDate("dt").toLocalDate() : null);
+
+					dto.setNumFiles(rs.getObject("gen_file_cnt", Integer.class));
+
+					dto.setFileNum(rs.getObject("file_num", Integer.class));
+
+					dto.setNumFilesCnt(rs.getObject("num_filescnt", Integer.class));
+
+					dto.setDt2(rs.getDate("dt2") != null ? rs.getDate("dt2").toLocalDate() : null);
+
+					dto.setFileNumber(rs.getObject("file_number", Integer.class));
+
+					dto.setJsonCount(rs.getObject("cntt", Long.class));
+
+					return dto;
+				});
+
+		log.info("PARTA/PARTB Records Found={} Time Taken={} ms", result.size(),
+				(System.currentTimeMillis() - startTime));
+
+		return result;
 	}
 
 	private List<ReportResponseDTO> generateEwbReport(ReportRequestDTO request) {
@@ -437,4 +531,60 @@ public class ReportServiceImpl {
 
 				));
 	}
+	
+	public List<LastUpdateDTO> getLastUpdateCrnReport() {
+
+	    String sql = """
+	            SELECT
+	                'CRN' AS ty,
+	                MAX(startdt::date) AS lastupdated_dt
+	            FROM filecounter.crn_common
+	            WHERE issuccess = 'true'
+	            """;
+
+	    return jdbcTemplate.query(sql,
+	            (rs, rowNum) -> new LastUpdateDTO(
+	                    rs.getString("ty"),
+	                    rs.getDate("lastupdated_dt").toLocalDate()
+	            ));
+	}
+	
+	public List<LastUpdateDTO> getLastUpdateRegistrationReport() {
+
+	    String sql = """
+	            SELECT
+	                'REGISTRATION' AS ty,
+	                MAX(start_tm::date) AS lastupdated_dt
+	            FROM gst_api_registration."ALERT_REGISTRATION"
+	            WHERE issuccess = 'true'
+	            """;
+
+	    return jdbcTemplate.query(sql,
+	            (rs, rowNum) -> new LastUpdateDTO(
+	                    rs.getString("ty"),
+	                    rs.getDate("lastupdated_dt").toLocalDate()
+	            ));
+	}
+	
+	public List<LastUpdateDTO> getLastUpdateEwayBillReport() {
+
+	    String sql = """
+	            SELECT
+	                ty,
+	                MAX(TO_DATE(dt,'DD-MM-YYYY')) AS lastupdated_dt
+	            FROM filecounter.ewb_count_data
+	            WHERE is_success = 'True'
+	            GROUP BY ty
+	            ORDER BY ty
+	            """;
+
+	    return jdbcTemplate.query(sql,
+	            (rs, rowNum) -> new LastUpdateDTO(
+	                    rs.getString("ty"),
+	                    rs.getDate("lastupdated_dt").toLocalDate()
+	            ));
+	}
+	
+	
+	
 }
