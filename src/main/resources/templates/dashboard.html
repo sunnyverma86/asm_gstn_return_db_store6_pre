@@ -70,9 +70,19 @@
 				<div id="registrationReportSection" style="display:none;">
 					<div th:insert="fragments/registration-report :: registrationReport"></div>
 				</div>
-				
+
 				<div id="ledgerSection" style="display:none;">
-				    <div th:insert="fragments/ledger :: ledgerSection"></div>
+					<div th:insert="fragments/ledger :: ledgerSection"></div>
+				</div>
+
+				<div id="EwayBillNewSection" style="display:none;">
+					<div th:insert="fragments/eway-bill-new-section :: EwayBillNewSection"></div>
+				</div>
+
+				<div id="ewaySearchSection" style="display:none;">
+
+					<div th:insert="fragments/eway-bill-search-section :: ewayBillSearchSection"></div>
+
 				</div>
 
 			</div>
@@ -107,6 +117,10 @@
 	<script th:src="@{/js/dashboard.js}"></script>
 
 	<script th:src="@{/js/return-on-fly.js}"></script>
+
+	<script th:src="@{/js/eway-bill.js}"></script>
+	
+	<script th:src="@{/js/eway-bill-search.js}"></script>
 
 </body>
 

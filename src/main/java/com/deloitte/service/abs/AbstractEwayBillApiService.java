@@ -6,8 +6,10 @@ import org.springframework.web.client.RestTemplate;
 
 import com.deloitte.returns.repository.eway.DateInfoEwayBillRepository;
 import com.deloitte.returns.repository.eway.EWayBillBeanRepository;
+import com.deloitte.returns.repository.eway.EwayBillEwbRepository;
 import com.deloitte.returns.repository.eway.EwbCountDataRepository;
 import com.deloitte.returns.repository.eway.EwbDetailsDataRepository;
+import com.deloitte.returns.repository.eway.PartAEwbRepository;
 import com.deloitte.service.impl.EwayBillApiSupportService;
 import com.deloitte.service.support.SupportEwayBillApiService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -61,5 +63,11 @@ public class AbstractEwayBillApiService {
 
 	@Autowired
 	protected EwayBillApiSupportService ewayBillApiSupportService;
+
+	@Autowired
+	protected EwayBillEwbRepository ewayBillEwbRepository;
+
+	@Autowired
+	protected  PartAEwbRepository partAEwbRepository;
 
 }

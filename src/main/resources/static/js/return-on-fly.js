@@ -10,12 +10,12 @@ function openReturn(returnType) {
             .html($("#gstr3bTemplate").html());
 
     }
-	else if (returnType === "GSTR1") {
+    else if (returnType === "GSTR1") {
 
-	      $("#returnContentArea")
-	          .html($("#gstr1Template").html());
+        $("#returnContentArea")
+            .html($("#gstr1Template").html());
 
-	  }
+    }
 }
 
 // ====================================
@@ -172,26 +172,26 @@ $(document).on(
 
 function openReturn(returnType) {
 
-    if(returnType === 'GSTR3B') {
+    if (returnType === 'GSTR3B') {
 
         let html =
             $("#gstr3bTemplate").html();
 
         $("#returnContentArea").html(html);
     }
-	
-	else if(returnType === 'GSTR1') {
 
-	       let html =
-	           $("#gstr1Template").html();
+    else if (returnType === 'GSTR1') {
 
-	       $("#returnContentArea").html(html);
-	   }
+        let html =
+            $("#gstr1Template").html();
+
+        $("#returnContentArea").html(html);
+    }
 }
 
 
 
-$(document).on("click", "#searchGstr1Btn", function () {
+$(document).on("click", "#searchGstr1Btn", function() {
 
     let gstin = $("#flyGstin").val().trim();
     let fy = $("#flyFy").val();
@@ -221,13 +221,14 @@ $(document).on("click", "#searchGstr1Btn", function () {
 
         },
 
-        success: function (response) {
-
+        success: function(response) {
+            console.log("Total Response Records:", response.length);
+            console.log(response);
             $("#gstr1Loading").hide();
 
             let html = "";
 
-            response.forEach(function (r) {
+            response.forEach(function(r) {
 
                 html += `
                     <tr>
@@ -286,7 +287,7 @@ $(document).on("click", "#searchGstr1Btn", function () {
 
         },
 
-        error: function (xhr) {
+        error: function(xhr) {
 
             $("#gstr1Loading").hide();
 

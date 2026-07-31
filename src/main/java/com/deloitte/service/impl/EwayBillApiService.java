@@ -5,12 +5,19 @@ import java.security.Key;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -19,9 +26,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
 import com.deloitte.common.bean.DateHepler;
+import com.deloitte.common.bean.EwayBillComparisonResponse;
+import com.deloitte.common.bean.EwayBillViewResponse;
+import com.deloitte.common.bean.FieldComparison;
 import com.deloitte.returns.entity.AEwayBill.EWayBillAuthBean;
 import com.deloitte.returns.entity.AEwayBill.EwbCountData;
 import com.deloitte.returns.entity.AEwayBill.EwbDetailsData;
+import com.deloitte.returns.entity.EwayBill.EwayBill_Ewb;
+import com.deloitte.returns.entity.EwayBill.PartAEwb;
 import com.deloitte.service.abs.AbstractEwayBillApiService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -303,9 +315,6 @@ public class EwayBillApiService extends AbstractEwayBillApiService {
 			return "Exception " + e;
 		}
 	}
-	
-	
-	
 
 	private static String decryptBySymmentricKeyData(String data) {
 
@@ -461,12 +470,13 @@ public class EwayBillApiService extends AbstractEwayBillApiService {
 
 			if (eWayBillAuthBean == null) {
 				log.error("Auth token not found in database");
-				//return "Auth token missing";
+				// return "Auth token missing";
 			}
 
 			log.info("Auth token fetched successfully");
 
-		//	log.info("Dummy FILECNT URL Example : https://dex.ewaybillgst.gov.in/v1.3/api/ewayApi/GetEWBFile?action=FILECNT&ewbdt=10/04/2022&cat=PARTA");
+			// log.info("Dummy FILECNT URL Example :
+			// https://dex.ewaybillgst.gov.in/v1.3/api/ewayApi/GetEWBFile?action=FILECNT&ewbdt=10/04/2022&cat=PARTA");
 
 			log.info("Building FILECNT URL with parameters | action=FILECNT | ewbdt={} | cat={}", date, category);
 
@@ -475,10 +485,11 @@ public class EwayBillApiService extends AbstractEwayBillApiService {
 			log.info("Generated FILECNT URL : {}", url);
 
 			log.info("Calling FILECNT API");
-			 String responseTextForCount = fetchResponse(url, eWayBillAuthBean.getAuthtoken());
-			//log.info("Skipping API call. Using dummy FILECNT response for testing");
+			String responseTextForCount = fetchResponse(url, eWayBillAuthBean.getAuthtoken());
+			// log.info("Skipping API call. Using dummy FILECNT response for testing");
 
-		//	String responseTextForCount = "{\"status\":\"1\",\"data\":\"kMDcLOfXQA/JCMFL4YmEVJNX0B1z1yNHcduyxALvdqYYpxE6A/GhjLf6OK9RkyUSen8RzLSiopz0Qjt0FIZh6IPuh18AAMMABwauvsV6WdDxtdmpkm3WSyMNPprUoy5G\",\"rek\":\"THDfexjJQB3H/FpNJGGk52/646Y2T011Tk/vSscwAMIfzT6SZ1jROzldiv5NueRD\",\"hmac\":\"w6rI4KnbLUvG4t1DccFrdyipZ5ztX4w4ZPtZGvuPjuY=\"}";
+			// String responseTextForCount =
+			// "{\"status\":\"1\",\"data\":\"kMDcLOfXQA/JCMFL4YmEVJNX0B1z1yNHcduyxALvdqYYpxE6A/GhjLf6OK9RkyUSen8RzLSiopz0Qjt0FIZh6IPuh18AAMMABwauvsV6WdDxtdmpkm3WSyMNPprUoy5G\",\"rek\":\"THDfexjJQB3H/FpNJGGk52/646Y2T011Tk/vSscwAMIfzT6SZ1jROzldiv5NueRD\",\"hmac\":\"w6rI4KnbLUvG4t1DccFrdyipZ5ztX4w4ZPtZGvuPjuY=\"}";
 
 			log.info("FILECNT API Raw Response : {}", responseTextForCount);
 
@@ -532,7 +543,7 @@ public class EwayBillApiService extends AbstractEwayBillApiService {
 				log.info("Loop values | ewbDt={} | category={} | fileNum={}", countData.getEwbDt(),
 						countData.getEwbCategory(), fileNum);
 
-				//log.info(
+				// log.info(
 //						"Dummy FILEDET URL Example :https://dex.ewaybillgst.gov.in/v1.3/api/ewayApi/GetEWBFile?action=FILEDET&ewbdt=10/04/2022&filenum=4&cat=PARTA");
 
 				// log.info("Building FILEDET URL");
@@ -611,6 +622,357 @@ public class EwayBillApiService extends AbstractEwayBillApiService {
 
 			return "Error processing EWB File Count: " + e.getMessage();
 		}
+	}
+
+	public EwayBillViewResponse getEwayBill(long ewbNo) {
+
+		EwayBill_Ewb ewb = ewayBillEwbRepository.findFirstByEwbNoOrderByIdDesc(ewbNo)
+				.orElseThrow(() -> new RuntimeException("EWay Bill not found"));
+
+		return EwayBillViewResponse.builder()
+
+				.ewaybillNo(ewb.getEwbNo()).ewaybillDate(ewb.getEwbDt())
+
+				.frmGstin(ewb.getFrGstin()).frmName(ewb.getFrName()).frmState(getStateName(ewb.getFrStat()))
+
+				.toGstin(ewb.getToGstin()).toName(ewb.getToName()).toState(getStateName(ewb.getToStat()))
+
+				.docNo(ewb.getDocNo()).docDt(ewb.getDocDt())
+
+				.assessableValue(ewb.getAssVal())
+
+				.igst(ewb.getIgstVal()).cgst(ewb.getCgstVal()).sgst(ewb.getSgstVal()).cess(ewb.getCessVal())
+
+				.status(getStatus(ewb.getStatus()))
+
+				.build();
+	}
+
+	private String getStatus(String status) {
+
+		switch (status) {
+
+		case "ACT":
+			return "ACT - Active";
+
+		case "CNL":
+			return "CNL - Cancelled";
+
+		case "EXP":
+			return "EXP - Expired";
+
+		default:
+			return status;
+		}
+	}
+
+	public Page<EwayBillViewResponse> searchByDate(String docDate, String status, int page, int size) {
+
+		LocalDate date = LocalDate.parse(docDate, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+
+		String formattedDate = date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+
+		Pageable pageable = PageRequest.of(page, size);
+
+		Page<EwayBill_Ewb> bills;
+
+		if ("ALL".equalsIgnoreCase(status)) {
+			bills = ewayBillEwbRepository.findByDocDate(formattedDate, pageable);
+		} else {
+			bills = ewayBillEwbRepository.findByDocDateAndStatus(formattedDate, status, pageable);
+		}
+
+		return bills.map(this::convertToResponse);
+	}
+
+	private EwayBillViewResponse convertToResponse(EwayBill_Ewb ewb) {
+
+		EwayBillViewResponse response = new EwayBillViewResponse();
+
+		response.setEwaybillNo(ewb.getEwbNo());
+		response.setStatus(ewb.getStatus());
+		response.setEwaybillDate(ewb.getEwbDt());
+
+		response.setFrmGstin(ewb.getFrGstin());
+		response.setFrmName(ewb.getFrName());
+		response.setFrmState(getStateName(ewb.getFrStat()));
+
+		response.setToGstin(ewb.getToGstin());
+		response.setToName(ewb.getToName());
+		response.setToState(getStateName(ewb.getToStat()));
+
+		response.setDocNo(ewb.getDocNo());
+		response.setDocDt(ewb.getDocDt());
+
+		response.setAssessableValue(ewb.getAssVal());
+		response.setIgst(ewb.getIgstVal());
+		response.setCgst(ewb.getCgstVal());
+		response.setSgst(ewb.getSgstVal());
+		response.setCess(ewb.getCessVal());
+
+		return response;
+
+	}
+
+	public static String getStateName(Long stateCode) {
+
+		if (stateCode == null) {
+			return "";
+		}
+
+		Map<Long, String> stateMap = new HashMap<>();
+
+		stateMap.put(1L, "Jammu & Kashmir");
+		stateMap.put(2L, "Himachal Pradesh");
+		stateMap.put(3L, "Punjab");
+		stateMap.put(4L, "Chandigarh");
+		stateMap.put(5L, "Uttarakhand");
+		stateMap.put(6L, "Haryana");
+		stateMap.put(7L, "Delhi");
+		stateMap.put(8L, "Rajasthan");
+		stateMap.put(9L, "Uttar Pradesh");
+		stateMap.put(10L, "Bihar");
+		stateMap.put(11L, "Sikkim");
+		stateMap.put(12L, "Arunachal Pradesh");
+		stateMap.put(13L, "Nagaland");
+		stateMap.put(14L, "Manipur");
+		stateMap.put(15L, "Mizoram");
+		stateMap.put(16L, "Tripura");
+		stateMap.put(17L, "Meghalaya");
+		stateMap.put(18L, "Assam");
+		stateMap.put(19L, "West Bengal");
+		stateMap.put(20L, "Jharkhand");
+		stateMap.put(21L, "Odisha");
+		stateMap.put(22L, "Chhattisgarh");
+		stateMap.put(23L, "Madhya Pradesh");
+		stateMap.put(24L, "Gujarat");
+		stateMap.put(26L, "Dadra & Nagar Haveli and Daman & Diu");
+		stateMap.put(27L, "Maharashtra");
+		stateMap.put(29L, "Karnataka");
+		stateMap.put(30L, "Goa");
+		stateMap.put(31L, "Lakshadweep");
+		stateMap.put(32L, "Kerala");
+		stateMap.put(33L, "Tamil Nadu");
+		stateMap.put(34L, "Puducherry");
+		stateMap.put(35L, "Andaman & Nicobar Islands");
+		stateMap.put(36L, "Telangana");
+		stateMap.put(37L, "Andhra Pradesh");
+		stateMap.put(38L, "Ladakh");
+		stateMap.put(97L, "Other Territory");
+		stateMap.put(99L, "Other Country");
+
+		return stateMap.getOrDefault(stateCode, "Unknown State");
+	}
+
+//	public EwayBillComparisonResponse compare(long ewbNo) {
+//
+//		// New Table
+//		EwayBill_Ewb newEwb = ewayBillEwbRepository.findFirstByEwbNo(ewbNo)
+//				.orElseThrow(() -> new RuntimeException("New Data Not Found"));
+//
+//		// Old Table
+//		String ewbNoStr = String.valueOf(ewbNo);
+//		PartAEwb oldEwb = partAEwbRepository.findFirstByEwbNo(ewbNoStr)
+//				.orElseThrow(() -> new RuntimeException("Old Data Not Found"));
+//
+//		EwayBillViewResponse newData = mapNewData(newEwb);
+//
+//		EwayBillViewResponse oldData = mapOldData(oldEwb);
+//
+//		List<FieldComparison> comparisons = new ArrayList<>();
+//
+//		comparisons.add(compareField("EWB Number", newData.getEwaybillNo(), oldData.getEwaybillNo()));
+//
+//		comparisons.add(
+//				compareField("Status", normalizeStatus(newData.getStatus()), normalizeStatus(oldData.getStatus())));
+//
+//		comparisons.add(compareField("EWB Date", newData.getEwaybillDate(), oldData.getEwaybillDate()));
+//
+//		comparisons.add(compareField("From GSTIN", newData.getFrmGstin(), oldData.getFrmGstin()));
+//
+//		comparisons.add(compareField("From Name", newData.getFrmName(), oldData.getFrmName()));
+//
+//		comparisons.add(compareField("From State", newData.getFrmState(), oldData.getFrmState()));
+//
+//		comparisons.add(compareField("To GSTIN", newData.getToGstin(), oldData.getToGstin()));
+//
+//		comparisons.add(compareField("To Name", newData.getToName(), oldData.getToName()));
+//
+//		comparisons.add(compareField("To State", newData.getToState(), oldData.getToState()));
+//
+//		comparisons.add(compareField("Document No", newData.getDocNo(), oldData.getDocNo()));
+//
+//		comparisons.add(compareField("Document Date", newData.getDocDt(), oldData.getDocDt()));
+//
+//		comparisons.add(compareField("Assessable Value", newData.getAssessableValue(), oldData.getAssessableValue()));
+//
+//		comparisons.add(compareField("IGST", newData.getIgst(), oldData.getIgst()));
+//
+//		comparisons.add(compareField("CGST", newData.getCgst(), oldData.getCgst()));
+//
+//		comparisons.add(compareField("SGST", newData.getSgst(), oldData.getSgst()));
+//
+//		comparisons.add(compareField("CESS", newData.getCess(), oldData.getCess()));
+//
+//		return EwayBillComparisonResponse.builder().newData(newData).oldData(oldData).comparisons(comparisons).build();
+//	}
+	public EwayBillComparisonResponse compare(long ewbNo) {
+
+		// ============================
+		// New Table (Mandatory)
+		// ============================
+		EwayBill_Ewb newEwb = ewayBillEwbRepository.findFirstByEwbNoOrderByIdDesc(ewbNo)
+				.orElseThrow(() -> new RuntimeException("New Data Not Found"));
+
+		EwayBillViewResponse newData = mapNewData(newEwb);
+
+		// ============================
+		// Old Table (Optional)
+		// ============================
+		String ewbNoStr = String.valueOf(ewbNo);
+
+		Optional<PartAEwb> oldEwbOptional = partAEwbRepository.findFirstByEwbNo(ewbNoStr);
+
+		EwayBillViewResponse oldData = oldEwbOptional.map(this::mapOldData).orElse(null);
+
+		List<FieldComparison> comparisons = new ArrayList<>();
+
+		if (oldData == null) {
+
+			comparisons.add(compareField("EWB Number", newData.getEwaybillNo(), "Not Found"));
+			comparisons.add(compareField("Status", normalizeStatus(newData.getStatus()), "Not Found"));
+			comparisons.add(compareField("EWB Date", newData.getEwaybillDate(), "Not Found"));
+
+			comparisons.add(compareField("From GSTIN", newData.getFrmGstin(), "Not Found"));
+			comparisons.add(compareField("From Name", newData.getFrmName(), "Not Found"));
+			comparisons.add(compareField("From State", newData.getFrmState(), "Not Found"));
+
+			comparisons.add(compareField("To GSTIN", newData.getToGstin(), "Not Found"));
+			comparisons.add(compareField("To Name", newData.getToName(), "Not Found"));
+			comparisons.add(compareField("To State", newData.getToState(), "Not Found"));
+
+			comparisons.add(compareField("Document No", newData.getDocNo(), "Not Found"));
+			comparisons.add(compareField("Document Date", newData.getDocDt(), "Not Found"));
+
+			comparisons.add(compareField("Assessable Value", newData.getAssessableValue(), "Not Found"));
+			comparisons.add(compareField("IGST", newData.getIgst(), "Not Found"));
+			comparisons.add(compareField("CGST", newData.getCgst(), "Not Found"));
+			comparisons.add(compareField("SGST", newData.getSgst(), "Not Found"));
+			comparisons.add(compareField("CESS", newData.getCess(), "Not Found"));
+
+		} else {
+
+			comparisons.add(compareField("EWB Number", newData.getEwaybillNo(), oldData.getEwaybillNo()));
+
+			comparisons.add(
+					compareField("Status", normalizeStatus(newData.getStatus()), normalizeStatus(oldData.getStatus())));
+
+			comparisons.add(compareField("EWB Date", newData.getEwaybillDate(), oldData.getEwaybillDate()));
+
+			comparisons.add(compareField("From GSTIN", newData.getFrmGstin(), oldData.getFrmGstin()));
+			comparisons.add(compareField("From Name", newData.getFrmName(), oldData.getFrmName()));
+			comparisons.add(compareField("From State", newData.getFrmState(), oldData.getFrmState()));
+
+			comparisons.add(compareField("To GSTIN", newData.getToGstin(), oldData.getToGstin()));
+			comparisons.add(compareField("To Name", newData.getToName(), oldData.getToName()));
+			comparisons.add(compareField("To State", newData.getToState(), oldData.getToState()));
+
+			comparisons.add(compareField("Document No", newData.getDocNo(), oldData.getDocNo()));
+			comparisons.add(compareField("Document Date", newData.getDocDt(), oldData.getDocDt()));
+
+			comparisons
+					.add(compareField("Assessable Value", newData.getAssessableValue(), oldData.getAssessableValue()));
+
+			comparisons.add(compareField("IGST", newData.getIgst(), oldData.getIgst()));
+			comparisons.add(compareField("CGST", newData.getCgst(), oldData.getCgst()));
+			comparisons.add(compareField("SGST", newData.getSgst(), oldData.getSgst()));
+			comparisons.add(compareField("CESS", newData.getCess(), oldData.getCess()));
+		}
+
+		return EwayBillComparisonResponse.builder().newData(newData).oldData(oldData).comparisons(comparisons).build();
+	}
+
+	private EwayBillViewResponse mapNewData(EwayBill_Ewb ewb) {
+
+		return EwayBillViewResponse.builder()
+
+				.ewaybillNo(ewb.getEwbNo()).ewaybillDate(ewb.getEwbDt())
+
+				.frmGstin(ewb.getFrGstin()).frmName(ewb.getFrName()).frmState(getStateName(ewb.getFrStat()))
+
+				.toGstin(ewb.getToGstin()).toName(ewb.getToName()).toState(getStateName(ewb.getToStat()))
+
+				.docNo(ewb.getDocNo()).docDt(ewb.getDocDt())
+
+				.assessableValue(ewb.getAssVal())
+
+				.igst(ewb.getIgstVal()).cgst(ewb.getCgstVal()).sgst(ewb.getSgstVal()).cess(ewb.getCessVal())
+
+				.status(getStatus(ewb.getStatus()))
+
+				.build();
+	}
+
+	private EwayBillViewResponse mapOldData(PartAEwb ewb) {
+
+		return EwayBillViewResponse.builder()
+
+				.ewaybillNo(Long.parseLong(ewb.getEwbNo())).ewaybillDate(ewb.getEwbDt())
+
+				.frmState(getStateName(ewb.getFrStat() == null ? null : ewb.getFrStat().longValue()))
+
+				.toGstin(ewb.getToGstin()).toName(ewb.getToName()).frmGstin(ewb.getFrGstin()).frmName(ewb.getFrName())
+				.toState(getStateName(ewb.getToStat() == null ? null : ewb.getToStat().longValue()))
+
+				.docNo(ewb.getDocNo()).docDt(ewb.getDocDt())
+
+				.assessableValue(ewb.getAssVal().doubleValue())
+
+				.igst(ewb.getIgstVal().doubleValue()).cgst(ewb.getCgstVal().doubleValue())
+				.sgst(ewb.getSgstVal().doubleValue()).cess(ewb.getCessVal().doubleValue())
+
+				.status(ewb.getStatus())
+
+				.build();
+	}
+
+	private String normalizeStatus(String status) {
+
+		if (status == null || status.trim().isEmpty()) {
+			return "";
+		}
+
+		status = status.trim().toUpperCase();
+
+		switch (status) {
+
+		case "ACT":
+		case "ACTIVE":
+		case "ACT - ACTIVE":
+			return "ACTIVE";
+
+		case "CNL":
+		case "CANCELLED":
+		case "CNL - CANCELLED":
+			return "CANCELLED";
+
+		case "EXP":
+		case "EXPIRED":
+		case "EXP - EXPIRED":
+			return "EXPIRED";
+
+		default:
+			return status;
+		}
+	}
+
+	private FieldComparison compareField(String field, Object newValue, Object oldValue) {
+
+		String newVal = newValue == null ? "" : newValue.toString().trim();
+		String oldVal = oldValue == null ? "" : oldValue.toString().trim();
+
+		return FieldComparison.builder().field(field).newValue(newVal).oldValue(oldVal)
+				.matched(newVal.equalsIgnoreCase(oldVal)).build();
 	}
 
 }

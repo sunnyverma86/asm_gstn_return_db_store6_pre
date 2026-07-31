@@ -4,15 +4,23 @@ import java.util.List;
 import java.util.function.Supplier;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.deloitte.common.bean.EwayBillComparisonResponse;
+import com.deloitte.common.bean.EwayBillViewResponse;
 import com.deloitte.returns.service.GstUserSessionServices;
+import com.deloitte.service.impl.EwayBillApiService;
+import com.deloitte.service.impl.EwayBillReportServiceImpl;
 import com.deloitte.service.impl.RegistrationServiceImpl;
 import com.deloitte.service.support.CommonServiceGstrUtilityImpl;
 import com.deloitte.service.support.GstinServiceRegistration;
@@ -35,6 +43,12 @@ public class ReturnController {
 
 	@Autowired
 	protected RegistrationServiceImpl registrationServiceImpl;
+
+	@Autowired
+	EwayBillApiService eWayBillApiService;
+
+	@Autowired
+	EwayBillReportServiceImpl ewayBillReportServiceImpl;
 
 	private static final String USERNAME = "GSTG2G18";
 
@@ -273,7 +287,7 @@ public class ReturnController {
 
 		return ResponseEntity.ok(response);
 	}
-	
+
 //	//@Scheduled(cron = "0 20 16 * * *")
 	@GetMapping("/process-documents-dh") // need to change the table--
 	public ResponseEntity<String> processDocumentsDh() {
@@ -282,7 +296,7 @@ public class ReturnController {
 
 		return ResponseEntity.ok(response);
 	}
-	
+
 	@GetMapping("/get-normal-taxpayer") // Get Normal Tax Payer
 	public ResponseEntity<String> getNormalTaxPayer() {
 
@@ -290,7 +304,7 @@ public class ReturnController {
 
 		return ResponseEntity.ok(response);
 	}
-	
+
 	@GetMapping("/get-tds-tcs-taxpayer") // Get Normal Tax Payer
 	public ResponseEntity<String> getTdsTcs() {
 
@@ -298,7 +312,7 @@ public class ReturnController {
 
 		return ResponseEntity.ok(response);
 	}
-	
+
 	@GetMapping("/GetEntityEnforcementOfficer") // Get Normal Tax Payer
 	public ResponseEntity<String> GetEntityEnforcementOfficer() {
 
@@ -306,14 +320,80 @@ public class ReturnController {
 
 		return ResponseEntity.ok(response);
 	}
-	
-	
-	@GetMapping("/GetLedgerItcOnly") //LEDGER ITC ONLY
+
+	@GetMapping("/GetLedgerItcOnly") // LEDGER ITC ONLY
 	public ResponseEntity<String> GetLedgerItcOnly() {
 
 		String response = registrationServiceImpl.GetLedgerItcOnly(USERNAME);
 
 		return ResponseEntity.ok(response);
+	}
+
+	@GetMapping("/{ewbNo}")
+	public ResponseEntity<EwayBillViewResponse> getEwayBill(@PathVariable long ewbNo) {
+
+		return ResponseEntity.ok(eWayBillApiService.getEwayBill(ewbNo));
+	}
+
+	@GetMapping("/compare/{ewbNo}")
+	public ResponseEntity<EwayBillComparisonResponse> compare(@PathVariable long ewbNo) {
+
+		return ResponseEntity.ok(eWayBillApiService.compare(ewbNo));
+	}
+
+	@GetMapping("/search")
+	public ResponseEntity<Page<EwayBillViewResponse>> searchByDate(@RequestParam String docDate,
+			@RequestParam(defaultValue = "ALL") String status, @RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "25") int size) {
+
+		return ResponseEntity.ok(eWayBillApiService.searchByDate(docDate, status, page, size));
+	}
+
+	@GetMapping("/ewaybill/pdf")
+	public ResponseEntity<byte[]> downloadPdf(@RequestParam String docDate,
+			@RequestParam(defaultValue = "ALL") String status) {
+
+		try {
+
+			byte[] pdf = ewayBillReportServiceImpl.generatePdf(docDate, status);
+
+			return ResponseEntity.ok()
+					.header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=ewaybill-report.pdf")
+					.contentType(MediaType.APPLICATION_PDF).body(pdf);
+
+		} catch (Exception e) {
+
+			log.error("PDF generation failed", e);
+
+			return ResponseEntity.internalServerError().build();
+		}
+
+	}
+
+	@GetMapping("/ewaybill/word")
+	public ResponseEntity<byte[]> downloadExcel(@RequestParam String docDate,
+			@RequestParam(defaultValue = "ALL") String status) {
+
+		try {
+
+			byte[] excel = ewayBillReportServiceImpl.generateExcel(docDate, status);
+
+			return ResponseEntity.ok()
+
+					.header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=ewaybill-report.xlsx")
+
+					.contentType(MediaType.APPLICATION_OCTET_STREAM)
+
+					.body(excel);
+
+		} catch (Exception e) {
+
+			log.error("Excel generation failed", e);
+
+			return ResponseEntity.internalServerError().build();
+
+		}
+
 	}
 
 }

@@ -1,0 +1,149 @@
+<div th:fragment="EwayBillNewSection">
+
+	<div class="container-fluid">
+
+		<!-- Search Card -->
+		<div class="card shadow">
+
+			<div class="card-header bg-primary text-white">
+
+				<h4 class="mb-0">
+					E-Way Bill Comparison
+				</h4>
+
+			</div>
+
+			<div class="card-body">
+
+				<div class="row">
+
+					<div class="col-md-10">
+
+						<label class="form-label fw-bold">
+							E-Way Bill Number
+						</label>
+
+						<input type="text" id="ewbNo" maxlength="12" class="form-control"
+							placeholder="Enter 12 Digit E-Way Bill Number">
+
+					</div>
+
+					<div class="col-md-2 d-flex align-items-end">
+
+						<button id="searchBtn" class="btn btn-success w-100">
+
+							<i class="fa fa-search"></i>
+							Search
+
+						</button>
+
+					</div>
+
+				</div>
+
+			</div>
+
+		</div>
+
+
+		<!-- Loader -->
+
+		<div id="loader" class="text-center mt-4" style="display:none;">
+
+			<div class="spinner-border text-primary" role="status">
+
+				<span class="visually-hidden">
+					Loading...
+				</span>
+
+			</div>
+
+			<p class="mt-2">
+				Please wait...
+			</p>
+
+		</div>
+
+
+		<!-- Result -->
+
+		<div id="resultDiv" style="display:none;">
+
+			<div class="card mt-4 shadow">
+
+				<div class="card-header bg-success text-white">
+
+					<div class="d-flex justify-content-between">
+
+						<h5 class="mb-0">
+
+							E-Way Bill Comparison Result
+
+						</h5>
+
+						<span id="summaryBadge" class="badge bg-light text-dark">
+
+						</span>
+
+					</div>
+
+				</div>
+
+				<div class="card-body">
+
+					<div class="table-responsive">
+
+						<table class="table table-bordered table-hover">
+
+							<thead class="table-dark">
+
+								<tr>
+
+									<th style="width:25%">
+										Field
+									</th>
+
+									<th style="width:28%">
+										Live Eway-Bill Data
+									</th>
+
+									<th style="width:28%">
+										4 Days Old Eway-Bill Data
+									</th>
+
+									<th style="width:19%" class="text-center">
+
+										Result
+
+									</th>
+
+								</tr>
+
+							</thead>
+
+							<tbody id="comparisonBody">
+
+							</tbody>
+
+						</table>
+
+					</div>
+
+				</div>
+
+			</div>
+
+		</div>
+
+
+		<!-- No Data -->
+
+		<div id="noDataDiv" class="alert alert-warning mt-4" style="display:none;">
+
+			No data found.
+
+		</div>
+
+	</div>
+
+</div>

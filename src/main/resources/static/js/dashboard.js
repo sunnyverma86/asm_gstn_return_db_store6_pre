@@ -39,6 +39,8 @@ function showSection(section) {
     $("#crnReportSection").hide();
     $("#registrationReportSection").hide();
     $("#ledgerSection").hide();
+    $("#EwayBillNewSection").hide();   // ADD THIS
+    $("#ewaySearchSection").hide();
 
     switch (section) {
 
@@ -93,6 +95,18 @@ function showSection(section) {
 
         case "registrationReport":
             $("#registrationReportSection").show();
+            break;
+
+        case "EwayBillNew":      // ADD THIS
+            $("#EwayBillNewSection").show();
+            break;
+
+        case "ewaySearch":
+
+            $("#ewaySearchSection").show();
+
+            loadEwayBillSearch();
+
             break;
 
 
@@ -771,7 +785,7 @@ function loadEwayBillLastUpdate() {
 
 }
 
-$(document).on("click", "#ledgerSubmitBtn", function () {
+$(document).on("click", "#ledgerSubmitBtn", function() {
 
     let action = $("#ledgerAction").val();
     let fr_dt = $("#ledgerFromDate").val();
@@ -809,7 +823,7 @@ $(document).on("click", "#ledgerSubmitBtn", function () {
 
         },
 
-        success: function (response) {
+        success: function(response) {
 
             $("#ledgerLoader").hide();
 
@@ -821,7 +835,7 @@ $(document).on("click", "#ledgerSubmitBtn", function () {
 
         },
 
-        error: function (xhr) {
+        error: function(xhr) {
 
             $("#ledgerLoader").hide();
 
@@ -994,4 +1008,105 @@ function triggerDownload(ty) {
     }
 }
 
+/*
+==================================================
+E-WAY BILL COMPARISON
+==================================================
+*/
 
+$(document).on("click", "#searchBtn", function() {
+    searchEwayBill();
+});
+
+function searchEwayBill() {
+
+    let ewbNo = $("#ewbNo").val().trim();
+
+    if (ewbNo === "") {
+        alert("Please Enter E-Way Bill Number");
+        return;
+    }
+
+    $("#loader").show();
+    $("#resultDiv").hide();
+    $("#noDataDiv").hide();
+
+    $.ajax({
+
+        url: "/common/gstr/compare/" + ewbNo,
+
+        type: "GET",
+
+        success: function(res) {
+
+            $("#loader").hide();
+            $("#resultDiv").show();
+
+            let html = "";
+            let matchedCount = 0;
+
+            res.comparisons.forEach(function(c) {
+
+                if (c.matched) {
+                    matchedCount++;
+                }
+
+                html += `
+                    <tr class="${c.matched ? 'table-success' : 'table-danger'}">
+
+                        <td>
+                            <strong>${c.field}</strong>
+                        </td>
+
+                        <td>
+                            ${c.newValue == null ? "" : c.newValue}
+                        </td>
+
+                        <td>
+                            ${c.oldValue == null ? "" : c.oldValue}
+                        </td>
+
+                        <td class="text-center">
+
+                            ${c.matched
+                        ? '<span class="badge bg-success">MATCH</span>'
+                        : '<span class="badge bg-danger">MISMATCH</span>'
+                    }
+
+                        </td>
+
+                    </tr>
+                `;
+
+            });
+
+            $("#comparisonBody").html(html);
+
+            $("#summaryBadge").html(
+                matchedCount +
+                " / " +
+                res.comparisons.length +
+                " Matched"
+            );
+
+        },
+
+        error: function(xhr) {
+
+            $("#loader").hide();
+            $("#resultDiv").hide();
+
+            $("#comparisonBody").html("");
+            $("#summaryBadge").html("");
+
+            if (xhr.status === 404) {
+                $("#noDataDiv").show();
+            } else {
+                alert("Error while fetching E-Way Bill.");
+            }
+
+        }
+
+    });
+
+}

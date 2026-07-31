@@ -1,0 +1,281 @@
+<div th:fragment="ewayBillSearchSection">
+
+	<div class="card shadow-sm">
+
+		<div class="card-header bg-primary text-white">
+			<h5 class="mb-0">
+				E-Way Bill Search
+			</h5>
+		</div>
+
+
+		<div class="card-body">
+
+
+			<!-- Search Area -->
+			<div class="row mb-3">
+
+
+				<div class="col-md-3">
+
+					<label class="form-label">
+						Document Date
+					</label>
+
+					<input type="date" id="ewaySearchDate" class="form-control">
+
+				</div>
+
+
+
+				<div class="col-md-3">
+
+					<label class="form-label">
+						Status
+					</label>
+
+					<select id="ewayStatus" class="form-select">
+
+						<option value="ALL">
+							ALL
+						</option>
+
+						<option value="ACT">
+							ACTIVE
+						</option>
+
+						<option value="CNL">
+							CANCEL
+						</option>
+
+					</select>
+
+				</div>
+
+
+
+				<div class="col-md-2 mt-4">
+
+					<button id="ewaySearchBtn" class="btn btn-primary">
+
+						Search
+
+					</button>
+
+				</div>
+
+
+			</div>
+
+
+
+			<!-- Summary Section -->
+
+			<div class="row mb-3">
+
+
+				<div class="col-md-3">
+
+					<div class="card border-primary shadow-sm">
+
+						<div class="card-body text-center">
+
+							<h6>Total E-Way Bill</h6>
+
+							<h3 id="totalEwayCount" class="text-primary">
+
+								0
+
+							</h3>
+
+						</div>
+
+					</div>
+
+				</div>
+
+
+
+				<div class="col-md-3">
+
+					<div class="card border-success shadow-sm">
+
+						<div class="card-body text-center">
+
+							<h6>Total IGST</h6>
+
+							<h3 id="totalIgst" class="text-success">
+
+								0.00
+
+							</h3>
+
+						</div>
+
+					</div>
+
+				</div>
+
+
+
+			</div>
+
+
+
+
+			<!-- Download Buttons -->
+
+			<div class="row mb-3">
+
+
+				<div class="col-md-12 text-end">
+
+
+					<button id="downloadPdfBtn" class="btn btn-danger">
+
+						<i class="fa fa-file-pdf"></i>
+						Download PDF
+
+					</button>
+
+
+
+					<button id="downloadWordBtn" class="btn btn-primary">
+
+						<i class="fa fa-file-word"></i>
+						Download Excel
+
+					</button>
+
+
+				</div>
+
+
+			</div>
+
+
+
+
+
+			<!-- Loader -->
+
+			<div id="ewayLoader" class="text-center" style="display:none">
+
+
+				<div class="spinner-border text-primary">
+
+				</div>
+
+				<p>
+					Loading E-Way Bills...
+				</p>
+
+
+			</div>
+
+
+
+
+
+			<!-- Table -->
+
+
+			<div class="table-responsive">
+
+
+				<table id="ewayBillTable" class="table table-bordered table-striped">
+
+
+					<thead class="table-dark">
+
+						<tr>
+
+							<th>EWB No</th>
+
+							<th>EWB Date</th>
+
+							<th>Status</th>
+
+							<th>From GSTIN</th>
+
+							<th>From Name</th>
+
+							<th>From State</th>
+
+							<th>To GSTIN</th>
+
+							<th>To Name</th>
+
+							<th>To State</th>
+
+							<th>Doc No</th>
+
+							<th>Doc Date</th>
+
+							<th>Assessable Value</th>
+
+							<th>IGST</th>
+
+							<th>CGST</th>
+
+							<th>SGST</th>
+
+							<th>CESS</th>
+
+
+						</tr>
+
+					</thead>
+
+
+					<tbody>
+
+
+					</tbody>
+
+
+				</table>
+
+
+			</div>
+
+
+
+
+			<!-- Pagination -->
+
+
+			<div class="d-flex justify-content-between mt-3">
+
+
+				<button id="ewayPrevBtn" class="btn btn-secondary">
+
+					Previous
+
+				</button>
+
+
+
+				<span id="ewayPageInfo" class="fw-bold">
+
+				</span>
+
+
+
+				<button id="ewayNextBtn" class="btn btn-secondary">
+
+					Next
+
+				</button>
+
+
+			</div>
+
+
+
+		</div>
+
+	</div>
+
+
+</div>
